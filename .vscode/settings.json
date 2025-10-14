@@ -16,9 +16,8 @@
     "ruff.interpreter": [
         "${workspaceFolder}/.venv/Scripts/python.exe"
     ],
-    "notebook.formatOnSave.enabled": true,               // notebook 保存时自动格式化
     "notebook.codeActionsOnSave": {
-        "source.fixAll": "explicit",                           // notebook 保存时自动修复可修复的 lint 错误
-        "source.organizeImports": "explicit"                   // notebook 保存时自动排序 import 语句
+        "source.fixAll": "explicit", // notebook 保存时自动修复可修复的 lint 错误
+        "source.organizeImports": "explicit" // notebook 保存时自动排序 import 语句
     }
 }

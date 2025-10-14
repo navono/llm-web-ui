@@ -14,6 +14,7 @@
 - Fix any test failures, type errors (mypy), or linting issues (ruff) until the whole suite is green.
 - After refactoring code or changing imports, run `uv run mypy <package_name>` and `uv run ruff check` to ensure type safety and code quality.
 - Add or update tests for the code you change, even if nobody asked. Aim for >90% test coverage.
+- Testing files in `tests` folder.
 
 ## Code quality checks
 - Run `uv run ruff format .` to format code automatically (ruff's built-in formatter).

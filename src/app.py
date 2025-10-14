@@ -1,4 +1,4 @@
-from .gradio import demo
+from .gradio import create_interface as demo
 from .utils import Config, CustomizeLogger
 
 gen_config = Config().get_config()
@@ -16,8 +16,11 @@ async def start():
 
     logger.info(f"Starting server on {server_host}:{server_port}")
 
+    # 创建 Gradio 界面
+    gradio_demo = demo()
+
     # Launch the Gradio interface
-    demo.queue(max_size=50).launch(
+    gradio_demo.queue(max_size=50).launch(
         mcp_server=False,
         ssr_mode=False,
         show_error=True,
