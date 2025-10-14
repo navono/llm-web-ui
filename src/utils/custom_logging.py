@@ -1,7 +1,6 @@
 import logging
 import os.path
 import sys
-from datetime import datetime
 
 from loguru import logger
 
@@ -115,12 +114,10 @@ class SourceFilter:
             # 获取记录中的模块名和函数名
             module = record.get("name", "")
             function = record.get("function", "")
-            
+
             # 检查是否匹配任何排除的模块-函数对
             for excluded_module, excluded_function in self.excluded_pairs:
-                if ((excluded_module == module or 
-                     (excluded_module == "src.g1_task.utils.custom_logging" and "custom_logging" in module)) and 
-                    excluded_function == function):
+                if (excluded_module == module or (excluded_module == "src.g1_task.utils.custom_logging" and "custom_logging" in module)) and excluded_function == function:
                     return False
             return True
         except Exception:
@@ -130,13 +127,13 @@ class SourceFilter:
 
 class CustomizeLogger:
     __mqtt_client = None
-    
+
     # 默认要排除的日志源 - 这是过滤第三方日志的主要方式
     __excluded_sources = [
         "logging:callHandlers",  # 排除 logging:callHandlers 函数的日志
         "src.g1_task.utils.custom_logging:handle",  # 排除 custom_logging:handle 函数的日志
     ]
-    
+
     # 以下过滤器作为备用，可以在需要时启用
     # 默认要排除的模块
     __excluded_modules = [
@@ -202,7 +199,7 @@ class CustomizeLogger:
     def get_excluded_loggers(cls) -> list:
         """Get the list of excluded logger names"""
         return cls.__excluded_loggers
-        
+
     @classmethod
     def set_excluded_functions(cls, functions: list):
         """Set function names to exclude from logging"""
@@ -223,7 +220,7 @@ class CustomizeLogger:
         # 优先添加源过滤器，这是过滤第三方日志的主要方式
         if cls.__excluded_sources:
             filters.append(SourceFilter(cls.__excluded_sources))
-            
+
         # 如果需要其他过滤器，可以启用以下代码
         # Add module filter if excluded modules are specified
         if cls.__excluded_modules:

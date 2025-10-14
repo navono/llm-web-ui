@@ -3,12 +3,13 @@
 测试在线服务器连接和多模态功能
 """
 
-import sys
+import base64
 import json
+from io import BytesIO
+
 import requests
 from PIL import Image
-import base64
-from io import BytesIO
+
 
 def test_server_connection():
     """测试服务器连接"""

@@ -4,12 +4,12 @@
 
 import time
 from threading import Thread
-from typing import Any
-import torch
-from transformers import TextIteratorStreamer
+
 from loguru import logger
+from transformers import TextIteratorStreamer
+
 from ..model_manager import model_manager
-from .online_client import online_client, is_online_model, get_online_model_id
+from .online_client import get_online_model_id, is_online_model, online_client
 
 
 # @spaces.GPU  # 暂时注释掉装饰器
@@ -19,13 +19,9 @@ def generate_text(text: str, max_new_tokens: int = 1024, temperature: float = 0.
 
     # 检查是否为在线模型
     if is_online_model(current_model_key):
-        yield from _generate_text_online(
-            text, current_model_key, max_new_tokens, temperature, top_p, top_k, repetition_penalty
-        )
+        yield from _generate_text_online(text, current_model_key, max_new_tokens, temperature, top_p, top_k, repetition_penalty)
     else:
-        yield from _generate_text_local(
-            text, max_new_tokens, temperature, top_p, top_k, repetition_penalty
-        )
+        yield from _generate_text_local(text, max_new_tokens, temperature, top_p, top_k, repetition_penalty)
 
 
 def _generate_text_local(text: str, max_new_tokens: int = 1024, temperature: float = 0.6, top_p: float = 0.9, top_k: int = 50, repetition_penalty: float = 1.2):
@@ -44,16 +40,7 @@ def _generate_text_local(text: str, max_new_tokens: int = 1024, temperature: flo
         inputs = current_processor(text=[prompt_full], return_tensors="pt", padding=True).to(next(current_model.parameters()).device)
 
         streamer = TextIteratorStreamer(current_processor, skip_prompt=True, skip_special_tokens=True)
-        generation_kwargs = {
-            **inputs,
-            "streamer": streamer,
-            "max_new_tokens": max_new_tokens,
-            "do_sample": True,
-            "temperature": temperature,
-            "top_p": top_p,
-            "top_k": top_k,
-            "repetition_penalty": repetition_penalty
-        }
+        generation_kwargs = {**inputs, "streamer": streamer, "max_new_tokens": max_new_tokens, "do_sample": True, "temperature": temperature, "top_p": top_p, "top_k": top_k, "repetition_penalty": repetition_penalty}
 
         thread = Thread(target=current_model.generate, kwargs=generation_kwargs)
         thread.start()
@@ -76,13 +63,7 @@ def _generate_text_online(text: str, model_key: str, max_new_tokens: int = 1024,
         logger.info(f"使用在线模型生成: {model_id}")
 
         # 构建生成参数
-        params = {
-            "max_tokens": max_new_tokens,
-            "temperature": temperature,
-            "top_p": top_p,
-            "top_k": top_k,
-            "repetition_penalty": repetition_penalty
-        }
+        params = {"max_tokens": max_new_tokens, "temperature": temperature, "top_p": top_p, "top_k": top_k, "repetition_penalty": repetition_penalty}
 
         # 使用流式生成
         buffer = ""
@@ -113,18 +94,18 @@ def switch_model(model_key: str) -> str:
         except Exception as e:
             logger.error(f"在线模型切换失败: {e}")
             return f"在线模型切换失败: {str(e)}"
+    # 本地模型切换
+    elif model_manager.switch_model(model_key):
+        model_info = model_manager.get_current_model_info()
+        logger.info(f"已切换到本地模型: {model_info.get('name', 'Unknown')}")
+        return f"已切换到本地模型: {model_info.get('name', 'Unknown')}"
     else:
-        # 本地模型切换
-        if model_manager.switch_model(model_key):
-            model_info = model_manager.get_current_model_info()
-            logger.info(f"已切换到本地模型: {model_info.get('name', 'Unknown')}")
-            return f"已切换到本地模型: {model_info.get('name', 'Unknown')}"
-        else:
-            logger.error("本地模型切换失败")
-            return "模型切换失败"
+        logger.error("本地模型切换失败")
+        return "模型切换失败"
 
 
 def connect_to_online_server(server_url: str) -> dict:
     """连接到在线服务器"""
     from .online_client import connect_to_server
+
     return connect_to_server(server_url)

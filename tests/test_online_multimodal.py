@@ -4,6 +4,7 @@
 """
 
 import sys
+
 sys.path.append('src')
 
 def test_online_multimodal():
@@ -14,11 +15,11 @@ def test_online_multimodal():
     try:
         # 测试导入
         print("1️⃣ 测试模块导入...")
-        from src.gradio.online_client import connect_to_server
-        from src.gradio.multimodal_generation import generate_image, encode_image_to_base64
+
         from PIL import Image
-        import io
-        import base64
+
+        from src.gradio.multimodal_generation import encode_image_to_base64, generate_image
+        from src.gradio.online_client import connect_to_server
         print("   ✅ 模块导入成功")
 
         # 连接到服务器

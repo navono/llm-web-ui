@@ -4,7 +4,7 @@
 """
 
 import sys
-import os
+
 sys.path.append('src')
 
 def test_ui_layout():
@@ -14,7 +14,6 @@ def test_ui_layout():
 
     try:
         # 模拟导入组件
-        from typing import Any
 
         print("1️⃣ 测试UI组件结构...")
 

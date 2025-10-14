@@ -3,8 +3,9 @@
 测试流式生成修复
 """
 
-import sys
 import os
+import sys
+
 sys.path.append('src')
 
 # 设置环境变量，避免模型加载
@@ -17,8 +18,9 @@ def test_streaming_function():
 
     try:
         # 模拟导入，避免实际的模型加载
-        from PIL import Image
         import inspect
+
+        from PIL import Image
 
         # 模拟生成器函数
         def mock_generate_image_online(text, image, model_key, **kwargs):

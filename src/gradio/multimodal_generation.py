@@ -3,20 +3,21 @@
 包含图像、视频、PDF、GIF等处理和生成功能
 """
 
-import time
 import base64
+import time
+from io import BytesIO
 from threading import Thread
 from typing import Any
+
 import cv2
 import numpy as np
 import torch
-from PIL import Image
-from io import BytesIO
-from transformers import TextIteratorStreamer
 from loguru import logger
-from ..model_manager import model_manager
-from .online_client import online_client, is_online_model, get_online_model_id
+from PIL import Image
+from transformers import TextIteratorStreamer
 
+from ..model_manager import model_manager
+from .online_client import get_online_model_id, is_online_model, online_client
 
 # 常量定义
 MAX_MAX_NEW_TOKENS = 4096
@@ -139,14 +140,10 @@ def generate_image(text: str, image: Image.Image, max_new_tokens: int = 1024, te
     # 检查是否为在线模型
     if is_online_model(current_model_key):
         # 递归调用在线生成函数
-        yield from _generate_image_online(
-            text, image, current_model_key, max_new_tokens, temperature, top_p, top_k, repetition_penalty
-        )
+        yield from _generate_image_online(text, image, current_model_key, max_new_tokens, temperature, top_p, top_k, repetition_penalty)
     else:
         # 递归调用本地生成函数
-        yield from _generate_image_local(
-            text, image, max_new_tokens, temperature, top_p, top_k, repetition_penalty
-        )
+        yield from _generate_image_local(text, image, max_new_tokens, temperature, top_p, top_k, repetition_penalty)
 
 
 def _generate_image_local(text: str, image: Image.Image, max_new_tokens: int = 1024, temperature: float = 0.6, top_p: float = 0.9, top_k: int = 50, repetition_penalty: float = 1.2):
@@ -192,33 +189,10 @@ def _generate_image_online(text: str, image: Image.Image, model_key: str, max_ne
         image_base64 = encode_image_to_base64(image)
 
         # 构建消息
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": image_base64
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": text
-                    }
-                ]
-            }
-        ]
+        messages = [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": image_base64}}, {"type": "text", "text": text}]}]
 
         # 构建生成参数
-        params = {
-            "model": model_id,
-            "messages": messages,
-            "max_tokens": max_new_tokens,
-            "temperature": temperature,
-            "top_p": top_p,
-            "stream": True
-        }
+        params = {"model": model_id, "messages": messages, "max_tokens": max_new_tokens, "temperature": temperature, "top_p": top_p, "stream": True}
 
         # 使用流式生成 - 传递结构化的消息而不是JSON字符串
         buffer = ""
@@ -258,7 +232,7 @@ def generate_video(text: str, video_path: str, max_new_tokens: int = 1024, tempe
             yield "Could not process video.", "Could not process video."
             return
         messages = [{"role": "user", "content": [{"type": "text", "text": text}]}]
-        for frame in frames:
+        for _frame in frames:
             messages[0]["content"].insert(0, {"type": "image"})
         prompt_full = current_processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = current_processor(text=[prompt_full], images=frames, return_tensors="pt", padding=True).to(device)
@@ -394,7 +368,7 @@ def generate_gif(text: str, gif_path: str, max_new_tokens: int = 1024, temperatu
             yield "Could not process GIF.", "Could not process GIF."
             return
         messages = [{"role": "user", "content": [{"type": "text", "text": text}]}]
-        for frame in frames:
+        for _frame in frames:
             messages[0]["content"].insert(0, {"type": "image"})
         prompt_full = current_processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = current_processor(text=[prompt_full], images=frames, return_tensors="pt", padding=True).to(device)

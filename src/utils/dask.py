@@ -172,7 +172,6 @@ class MyWebSocketPlugin(WorkerPlugin):
     async def setup(self, worker):
         """在 Worker 启动时调用"""
         self.worker_name = worker.name
-        ws_url = f"{self.base_ws_url}worker_{self.worker_name}"
         # self.ws_connection = WebSocketConnection(ws_url)
         await self.ws_connection.connect()
 

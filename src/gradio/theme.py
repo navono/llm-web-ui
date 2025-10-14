@@ -33,10 +33,13 @@ div.no-padding { padding: 0 !important; }
 @media (max-height: 1280px) { div.block.chatbot { max-height: 800px !important; } }
 """
 
+
 # 延迟加载主题，避免循环导入
 def get_theme():
     import gradio as gr
+
     return gr.themes.Soft()
+
 
 # 预设主题名称，稍后实例化
 thistle_theme = None

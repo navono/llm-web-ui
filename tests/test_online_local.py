@@ -4,6 +4,7 @@
 """
 
 import sys
+
 sys.path.append('src')
 
 def test_online_functions():
@@ -14,8 +15,8 @@ def test_online_functions():
     try:
         # 测试导入
         print("1️⃣ 测试模块导入...")
-        from gradio.online_client import OnlineClient, connect_to_server
-        from gradio.text_generation import switch_model, generate_text
+        from gradio.online_client import connect_to_server
+        from gradio.text_generation import generate_text, switch_model
         print("   ✅ 模块导入成功")
 
         # 测试连接函数

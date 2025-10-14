@@ -2,12 +2,14 @@
 """
 测试文本生成功能
 """
-import sys
 import os
+import sys
+
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.gradio.text_generation import generate_text
 from src.model_manager import model_manager
+
 
 def test_text_generation():
     """测试文本生成功能"""

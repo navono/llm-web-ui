@@ -2,8 +2,10 @@
 """
 测试Web接口的文本生成功能
 """
-import requests
 import json
+
+import requests
+
 
 def test_web_interface():
     """测试Web接口的文本生成功能"""

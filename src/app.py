@@ -25,7 +25,7 @@ async def start():
         ssr_mode=False,
         show_error=True,
         server_name=server_host,
-        server_port=server_port
+        server_port=server_port,
     )
 
     logger.info(f"Gradio interface launched successfully on {server_host}:{server_port}!")

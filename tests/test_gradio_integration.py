@@ -3,12 +3,13 @@
 测试Gradio集成和在线多模态功能
 """
 
-import sys
-import json
-import requests
 import base64
+import json
 from io import BytesIO
+
+import requests
 from PIL import Image
+
 
 def test_complete_online_multimodal():
     """完整测试在线多模态功能"""
