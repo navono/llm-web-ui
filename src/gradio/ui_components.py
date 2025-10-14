@@ -21,24 +21,29 @@ def handle_connect_server(server_url: str):
 
     if result["success"]:
         return (
-            result["message"],
-            gr.Row(visible=True),
-            gr.Dropdown(choices=result["models"], value=None)
+            gr.Column(visible=True),  # online_models_column
+            gr.Dropdown(choices=result["models"], value=None),  # online_model_dropdown
+            gr.Button(visible=True),  # use_online_model_btn
+            f"成功连接到服务器，发现 {len(result['models'])} 个模型"  # 可以作为临时提示
         )
     else:
         return (
-            result["message"],
-            gr.Row(visible=False),
-            gr.Dropdown(choices=[], value=None)
+            gr.Column(visible=False),  # online_models_column
+            gr.Dropdown(choices=[], value=None),  # online_model_dropdown
+            gr.Button(visible=False),  # use_online_model_btn
+            result["message"]  # 可以作为临时提示
         )
 
 
 def handle_use_online_model(online_model_key: str):
     """处理使用在线模型"""
     if not online_model_key:
-        return "请先选择在线模型", gr.Dropdown()
+        return "请先选择在线模型", gr.Dropdown(), gr.Textbox()
 
     result = switch_model(online_model_key)
+
+    # 更新当前模型显示
+    current_model_status = f"当前模型: [Online] {online_model_key.split(':', 1)[1]}"
 
     # 更新主模型下拉框
     available_models = model_manager.get_available_models()
@@ -48,8 +53,8 @@ def handle_use_online_model(online_model_key: str):
     model_choices.append((online_model_key.split(":", 1)[1], online_model_key))
 
     return (
-        result,
-        gr.Dropdown(choices=model_choices, value=online_model_key)
+        gr.Dropdown(choices=model_choices, value=online_model_key),  # model_dropdown
+        current_model_status  # current_model_display
     )
 
 
@@ -80,41 +85,35 @@ def create_interface():
                 model_dropdown = gr.Dropdown(
                     choices=model_choices,
                     value=current_model_key,
-                    label="本地模式 - 选择模型",
-                    info="选择要使用的AI模型"
+                    label="本地模式 - 选择模型"
                 )
-                switch_model_btn = gr.Button("切换模型", variant="secondary", size="sm")
-            with gr.Column(scale=2):
-                model_status = gr.Textbox(
-                    value=update_model_status(current_model_key),
-                    label="模型状态",
-                    interactive=False
+            with gr.Column(scale=1):
+                server_url_input = gr.Textbox(
+                    label="Online模式 - 服务器地址",
+                    placeholder="http://localhost:18800/v1",
+                    value="http://localhost:18800/v1"
                 )
 
-        # Online模式连接区域
-        with gr.Accordion("🌐 Online模式 - 连接远程服务", open=False):
-            with gr.Row():
-                with gr.Column(scale=1):
-                    server_url_input = gr.Textbox(
-                        label="服务器地址",
-                        placeholder="http://localhost:18800/v1",
-                        value="http://localhost:18800/v1"
-                    )
-                    connect_server_btn = gr.Button("连接服务器", variant="primary")
-                with gr.Column(scale=1):
-                    connection_status = gr.Textbox(
-                        label="连接状态",
-                        value="未连接",
-                        interactive=False
-                    )
+        with gr.Row():
+            switch_model_btn = gr.Button("切换模型", variant="primary", scale=1)
+            connect_server_btn = gr.Button("连接服务器", variant="primary", scale=1)
+            use_online_model_btn = gr.Button("使用在线模型", variant="secondary", scale=1, visible=False)
 
-            with gr.Row(visible=False) as online_models_row:
+        # Online模式模型选择和当前模型状态
+        with gr.Row():
+            with gr.Column(scale=1, visible=False) as online_models_column:
                 online_model_dropdown = gr.Dropdown(
                     choices=[],
                     label="选择在线模型",
                     info="从远程服务器选择模型"
                 )
-                use_online_model_btn = gr.Button("使用在线模型", variant="secondary")
+            with gr.Column(scale=1):
+                current_model_display = gr.Textbox(
+                    value=update_model_status(current_model_key),
+                    label="当前模型",
+                    interactive=False,
+                    info="显示当前正在使用的AI模型"
+                )
 
         with gr.Row():
             with gr.Column(scale=2):
@@ -237,20 +236,20 @@ def create_interface():
         switch_model_btn.click(
             fn=switch_model,
             inputs=[model_dropdown],
-            outputs=[model_status]
+            outputs=[current_model_display]
         )
 
         # Online模式事件绑定
         connect_server_btn.click(
             fn=handle_connect_server,
             inputs=[server_url_input],
-            outputs=[connection_status, online_models_row, online_model_dropdown]
+            outputs=[online_models_column, online_model_dropdown, use_online_model_btn]
         )
 
         use_online_model_btn.click(
             fn=handle_use_online_model,
             inputs=[online_model_dropdown],
-            outputs=[model_status, model_dropdown]
+            outputs=[model_dropdown, current_model_display]
         )
 
         # 多模态事件绑定
