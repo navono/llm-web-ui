@@ -17,9 +17,9 @@
 - Testing files in `tests` folder.
 
 ## Code quality checks
-- Run `uv run ruff format .` to format code automatically (ruff's built-in formatter).
-- Run `uv run ruff check .` for fast linting and auto-fixable issues.
-- Run `uv run mypy <package_name>` for type checking.
+- Run `make format` to format code automatically (ruff's built-in formatter).
+- Run `make lint` for fast linting and auto-fixable issues.
+- Run `make check` for type checking.
 - Use `uv run pre-commit run --all-files` if pre-commit hooks are configured.
 
 ## Environment setup
