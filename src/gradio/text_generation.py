@@ -19,11 +19,11 @@ def generate_text(text: str, max_new_tokens: int = 1024, temperature: float = 0.
 
     # 检查是否为在线模型
     if is_online_model(current_model_key):
-        return _generate_text_online(
+        yield from _generate_text_online(
             text, current_model_key, max_new_tokens, temperature, top_p, top_k, repetition_penalty
         )
     else:
-        return _generate_text_local(
+        yield from _generate_text_local(
             text, max_new_tokens, temperature, top_p, top_k, repetition_penalty
         )
 

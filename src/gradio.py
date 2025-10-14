@@ -484,7 +484,7 @@ with gr.Blocks(theme=thistle_theme, css=css) as demo:
             with gr.Tabs():
                 with gr.TabItem("Text Generation"):
                     text_query = gr.Textbox(label="Text Input", placeholder="Enter your text prompt here...", lines=3)
-                    text_submit = gr.Button("Generate", variant="primary")
+                    text_submit = gr.Button("Submit", variant="primary")
 
                 with gr.TabItem("Image Inference"):
                     image_query = gr.Textbox(label="Query Input", placeholder="Enter your query here...")
@@ -520,7 +520,7 @@ with gr.Blocks(theme=thistle_theme, css=css) as demo:
 
                 with gr.TabItem("Caption"):
                     caption_image_upload = gr.Image(type="pil", label="Image to Caption", height=290)
-                    caption_submit = gr.Button("Generate Caption", variant="primary")
+                    caption_submit = gr.Button("Submit", variant="primary")
                     # gr.Examples(examples=caption_examples, inputs=[caption_image_upload])  # 暂时注释掉
 
             with gr.Accordion("Advanced options", open=False):
