@@ -21,14 +21,14 @@ def convert_mp3_to_wav(mp3_path, wav_path, target_sample_rate=16000, target_num_
     try:
         # 1. 加载 MP3 文件
         audio = AudioSegment.from_mp3(mp3_path)
-        print(f"原始音频信息: 采样率={audio.frame_rate} Hz, 声道数={audio.channels}")
+        logger.info(f"原始音频信息: 采样率={audio.frame_rate} Hz, 声道数={audio.channels}")
         # 2. 强制设置采样率
         if audio.frame_rate != target_sample_rate:
-            print(f"正在将采样率从 {audio.frame_rate} Hz 转换为 {target_sample_rate} Hz...")
+            logger.info(f"正在将采样率从 {audio.frame_rate} Hz 转换为 {target_sample_rate} Hz...")
             audio = audio.set_frame_rate(target_sample_rate)
         # 3. 强制设置声道数
         if audio.channels != target_num_channels:
-            print(f"正在将声道数从 {audio.channels} 转换为 {target_num_channels}...")
+            logger.info(f"正在将声道数从 {audio.channels} 转换为 {target_num_channels}...")
             audio = audio.set_channels(target_num_channels)
         # 4. 导出为 WAV 文件
         audio.export(wav_path, format="wav")

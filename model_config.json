@@ -1,0 +1,22 @@
+{
+  "models": {
+    "qwen3-4b-fp8": {
+      "id": "Qwen/Qwen3-4B-Instruct-2507-FP8",
+      "name": "Qwen3 4B FP8 (本地)",
+      "type": "text",
+      "description": "4B参数的FP8量化版本，适合快速测试",
+      "model_class": "AutoModelForCausalLM",
+      "device_map": "auto"
+    },
+    "qwen3-vl-30b": {
+      "id": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "name": "Qwen3 VL 30B (多模态)",
+      "type": "multimodal",
+      "description": "30B参数的多模态视觉语言模型",
+      "model_class": "Qwen3VLMoeForConditionalGeneration",
+      "device_map": "auto",
+      "dtype": "float16"
+    }
+  },
+  "default_model": "qwen3-4b-fp8"
+}

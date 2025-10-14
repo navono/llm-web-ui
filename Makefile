@@ -1,4 +1,4 @@
-dev:
+start:
 	uv run -m src.main run
 
-.PHONY: dev
+.PHONY: start

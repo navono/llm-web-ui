@@ -1,44 +1,73 @@
 [project]
-name = "llm_web_ui"
-version = "0.1.0"
+authors = [
+  {name = "", email = ""},
+]
+dependencies = [
+  "click>=8.2.1",
+  "dask[complete,distributed]>=2025.9.0",
+  "loguru>=0.7.3",
+  "pyyaml>=6.0.2",
+  "qwen-vl-utils>=0.0.14",
+  "transformers==4.57.0",
+  "torch==2.5.1",
+  "torchvision==0.20.1",
+  "torchaudio==2.5.1",
+  "timm>=1.0.20",
+  "gradio>=5.49.1",
+  "pillow>=11.3.0",
+  "xformers>=0.0.29.post1",
+  "spaces>=0.42.1",
+  "opencv-python>=4.12.0.88",
+  "pymupdf>=1.24.0",
+  "accelerate>=1.2.0",
+]
 description = "Llm Web Ui project"
+license = {text = "MIT"}
+name = "llm_web_ui"
 readme = "README.md"
 requires-python = ">=3.12"
-authors = [
-    {name = "", email = ""},
-]
-license = {text = "MIT"}
-dependencies = [
-    "click>=8.2.1",
-    "dask[complete,distributed]>=2025.9.0",
-    "loguru>=0.7.3",
-    "pyyaml>=6.0.2",
-]
+version = "0.1.0"
 
 [project.scripts]
 llm_web_ui = "llm_web_ui.main:main"
 
+[tool.uv.sources]
+torch = [
+  {index = "pytorch-cu124"},
+]
+torchaudio = [
+  {index = "pytorch-cu124"},
+]
+torchvision = [
+  {index = "pytorch-cu124"},
+]
+
+[[tool.uv.index]]
+explicit = true
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+
 [tool.ruff]
-target-version = "py312"
-line-length = 240
 indent-width = 4
+line-length = 240
+target-version = "py312"
 
 # Enable linters
 select = [
-    "E",  # pycodestyle errors
-    "F",  # pyflakes
-    "I",  # isort
-    "B",  # flake8-bugbear
-    "C4", # flake8-comprehensions
-    "UP", # pyupgrade
-    "N",  # pep8-naming
-    "SIM", # flake8-simplify
-    "T20", # flake8-print
-    "PL", # pylint
+  "E", # pycodestyle errors
+  "F", # pyflakes
+  "I", # isort
+  "B", # flake8-bugbear
+  "C4", # flake8-comprehensions
+  "UP", # pyupgrade
+  "N", # pep8-naming
+  "SIM", # flake8-simplify
+  "T20", # flake8-print
+  "PL", # pylint
 ]
 
 # Ignore specific rules
-ignore = ["D100"]  # 禁用缺少模块文档字符串的检查
+ignore = ["D100"] # 禁用缺少模块文档字符串的检查
 
 # Allow autofix for all enabled rules (when `--fix`) is provided
 fixable = ["ALL"]
@@ -46,46 +75,46 @@ unfixable = []
 
 # Exclude files and directories
 exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".git-rewrite",
-    ".hg",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".pytype",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "venv",
+  ".bzr",
+  ".direnv",
+  ".eggs",
+  ".git",
+  ".git-rewrite",
+  ".hg",
+  ".mypy_cache",
+  ".nox",
+  ".pants.d",
+  ".pytype",
+  ".ruff_cache",
+  ".svn",
+  ".tox",
+  ".venv",
+  "__pypackages__",
+  "_build",
+  "buck-out",
+  "build",
+  "dist",
+  "node_modules",
+  "venv",
 ]
 
 [tool.ruff.isort]
 known-third-party = ["fastapi", "pydantic", "loguru", "dask", "uvicorn"]
 
 [tool.ruff.format]
-quote-style = "double"
 indent-style = "space"
 line-ending = "auto"
+quote-style = "double"
 skip-magic-trailing-comma = false
 
 [tool.pylint.messages_control]
 disable = [
-    "C0114",  # missing-module-docstring
-    "C0115",  # missing-class-docstring
-    "C0116",  # missing-function-docstring
+  "C0114", # missing-module-docstring
+  "C0115", # missing-class-docstring
+  "C0116", # missing-function-docstring
 ]
 
 [dependency-groups]
 dev = [
-    "ruff>=0.11.12",
+  "ruff>=0.11.12",
 ]
