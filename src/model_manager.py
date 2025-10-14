@@ -3,6 +3,7 @@ import os
 from typing import Any
 
 import torch
+from loguru import logger
 from transformers import (
     AutoModelForCausalLM,
     AutoProcessor,
@@ -42,7 +43,7 @@ class ModelManager:
             model_key = self.current_model_key
 
         if model_key not in self.config["models"]:
-            print(f"模型 '{model_key}' 未在配置中找到")
+            logger.error(f"模型 '{model_key}' 未在配置中找到")
             return False
 
         # 如果模型已经加载，直接返回
@@ -54,7 +55,7 @@ class ModelManager:
         model_id = model_config["id"]
 
         try:
-            print(f"正在加载模型: {model_config['name']} ({model_id})")
+            logger.info(f"正在加载模型: {model_config['name']} ({model_id})")
 
             # 加载processor
             processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True, use_fast=False)
@@ -86,11 +87,11 @@ class ModelManager:
             self.models[model_key] = model
             self.current_model_key = model_key
 
-            print(f"模型 '{model_config['name']}' 加载成功!")
+            logger.info(f"模型 '{model_config['name']}' 加载成功!")
             return True
 
         except Exception as e:
-            print(f"加载模型失败: {e}")
+            logger.error(f"加载模型失败: {e}")
             return False
 
     def get_current_model(self):
@@ -108,14 +109,14 @@ class ModelManager:
     def switch_model(self, model_key: str) -> bool:
         """切换到指定的模型"""
         if model_key not in self.config["models"]:
-            print(f"模型 '{model_key}' 未在配置中找到")
+            logger.error(f"模型 '{model_key}' 未在配置中找到")
             return False
 
         if model_key not in self.models:
             return self.load_model(model_key)
         else:
             self.current_model_key = model_key
-            print(f"已切换到模型: {self.config['models'][model_key]['name']}")
+            logger.info(f"已切换到模型: {self.config['models'][model_key]['name']}")
             return True
 
     def unload_model(self, model_key: str) -> bool:
@@ -127,7 +128,7 @@ class ModelManager:
 
         # 清理GPU内存
         torch.cuda.empty_cache()
-        print(f"模型 '{model_key}' 已卸载")
+        logger.info(f"模型 '{model_key}' 已卸载")
         return True
 
     def reload_config(self):

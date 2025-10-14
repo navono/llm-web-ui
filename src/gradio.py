@@ -14,6 +14,7 @@ import numpy as np
 import torch
 from PIL import Image
 from transformers import TextIteratorStreamer
+from loguru import logger
 
 import gradio as gr
 from gradio.themes import Soft
@@ -171,24 +172,24 @@ MAX_MAX_NEW_TOKENS = 4096
 DEFAULT_MAX_NEW_TOKENS = 1024
 device = torch.device("cuda:6" if torch.cuda.is_available() else "cpu")  # 指定使用cuda:6
 
-print("CUDA_VISIBLE_DEVICES=", os.environ.get("CUDA_VISIBLE_DEVICES"))
-print("torch.__version__ =", torch.__version__)
-print("torch.version.cuda =", torch.version.cuda)
-print("cuda available:", torch.cuda.is_available())
-print("cuda device count:", torch.cuda.device_count())
+logger.info(f"CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES')}")
+logger.info(f"torch.__version__={torch.__version__}")
+logger.info(f"torch.version.cuda={torch.version.cuda}")
+logger.info(f"cuda available={torch.cuda.is_available()}")
+logger.info(f"cuda device count={torch.cuda.device_count()}")
 if torch.cuda.is_available():
-    print("current device:", torch.cuda.current_device())
-    print("device name:", torch.cuda.get_device_name(torch.cuda.current_device()))
-print("Using device:", device)
+    logger.info(f"current device={torch.cuda.current_device()}")
+    logger.info(f"device name={torch.cuda.get_device_name(torch.cuda.current_device())}")
+logger.info(f"Using device={device}")
 
 # 初始化模型管理器并加载默认模型
-print("正在初始化模型管理器...")
+logger.info("正在初始化模型管理器...")
 if not model_manager.load_model():
-    print("默认模型加载失败!")
+    logger.error("默认模型加载失败!")
     exit(1)
 
 current_model_info = model_manager.get_current_model_info()
-print(f"当前使用模型: {current_model_info.get('name', 'Unknown')}")
+logger.info(f"当前使用模型: {current_model_info.get('name', 'Unknown')}")
 
 
 def extract_gif_frames(gif_path: str):

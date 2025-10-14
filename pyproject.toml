@@ -21,7 +21,7 @@ dependencies = [
   "pymupdf>=1.24.0",
   "accelerate>=1.2.0",
 ]
-description = "Llm Web Ui project"
+description = "LLM Web Ui project"
 license = {text = "MIT"}
 name = "llm_web_ui"
 readme = "README.md"
