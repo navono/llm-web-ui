@@ -9,6 +9,8 @@ from transformers import (
     AutoProcessor,
 )
 
+from src.utils.config import Config
+
 
 class ModelManager:
     """管理多个模型的加载和切换"""
@@ -19,6 +21,9 @@ class ModelManager:
         self.current_model_key = self.config.get("default_model", "qwen3-4b-fp8")
         self.models = {}
         self.processors = {}
+        # 加载全局配置以获取 CUDA 设置
+        self.global_config = Config().get_config()
+        self.default_device = self.global_config.get("cuda", {}).get("default_device", "auto")
 
     def _load_config(self) -> dict[str, Any]:
         """加载模型配置文件"""
@@ -70,12 +75,16 @@ class ModelManager:
             }
 
             if "device_map" in model_config:
-                if model_config["device_map"] == "auto":
-                    load_kwargs["device_map"] = {"": 6}  # 指定到cuda:6
+                # 模型配置中指定了 device_map
+                device_map = model_config["device_map"]
+                if device_map == "auto":
+                    # 如果模型配置是 auto，使用全局配置的默认设备
+                    load_kwargs["device_map"] = self.default_device
                 else:
-                    load_kwargs["device_map"] = model_config["device_map"]
+                    load_kwargs["device_map"] = device_map
             else:
-                load_kwargs["device_map"] = {"": 6}  # 默认加载到cuda:6
+                # 模型配置中没有指定，使用全局配置的默认设备
+                load_kwargs["device_map"] = self.default_device
 
             if "dtype" in model_config:
                 load_kwargs["dtype"] = getattr(torch, model_config["dtype"])
