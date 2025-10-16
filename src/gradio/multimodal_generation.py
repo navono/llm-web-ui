@@ -297,11 +297,24 @@ def generate_pdf(text: str, state: dict[str, Any], max_new_tokens: int = 2048, t
 
 # @spaces.GPU
 def generate_caption(image: Image.Image, max_new_tokens: int = 1024, temperature: float = 0.6, top_p: float = 0.9, top_k: int = 50, repetition_penalty: float = 1.2):
-    """图像描述生成函数"""
+    """图像描述生成函数，支持本地和在线模型"""
     if image is None:
         yield "Please upload an image to caption.", "Please upload an image to caption."
         return
 
+    current_model_key = model_manager.current_model_key
+
+    # 检查是否为在线模型
+    if is_online_model(current_model_key):
+        # 递归调用在线生成函数
+        yield from _generate_caption_online(image, current_model_key, max_new_tokens, temperature, top_p, top_k, repetition_penalty)
+    else:
+        # 递归调用本地生成函数
+        yield from _generate_caption_local(image, max_new_tokens, temperature, top_p, top_k, repetition_penalty)
+
+
+def _generate_caption_local(image: Image.Image, max_new_tokens: int = 1024, temperature: float = 0.6, top_p: float = 0.9, top_k: int = 50, repetition_penalty: float = 1.2):
+    """本地模型图像描述生成"""
     current_model = model_manager.get_current_model()
     current_processor = model_manager.get_current_processor()
 
@@ -312,7 +325,7 @@ def generate_caption(image: Image.Image, max_new_tokens: int = 1024, temperature
     # 检查模型类型
     model_info = model_manager.get_current_model_info()
     if model_info.get("type") != "multimodal":
-        yield "当前模型不支持图像描述，请切换到多模态模型", "当前模型不支持图像描述，请切换到多模态模型"
+        yield "当前本地模型不支持图像描述，请切换到多模态模型", "当前本地模型不支持图像描述，请切换到多模态模型"
         return
 
     try:
@@ -338,7 +351,45 @@ def generate_caption(image: Image.Image, max_new_tokens: int = 1024, temperature
             time.sleep(0.01)
             yield buffer, buffer
     except Exception as e:
-        logger.error(f"图像描述生成失败: {e}")
+        logger.error(f"本地图像描述生成失败: {e}")
+        yield f"生成出错: {str(e)}", f"生成出错: {str(e)}"
+
+
+def _generate_caption_online(image: Image.Image, model_key: str, max_new_tokens: int = 1024, temperature: float = 0.6, top_p: float = 0.9, top_k: int = 50, repetition_penalty: float = 1.2):
+    """在线模型图像描述生成"""
+    try:
+        model_id = get_online_model_id(model_key)
+        logger.info(f"使用在线模型生成图像描述: {model_id}")
+
+        # 编码图像为base64
+        image_base64 = encode_image_to_base64(image)
+
+        # 系统提示词
+        system_prompt = (
+            "You are an AI assistant that rigorously follows this response protocol: For every input image, your primary "
+            "task is to write a precise caption that captures the essence of the image in clear, concise, and contextually "
+            "accurate language. Along with the caption, provide a structured set of attributes describing the visual "
+            "elements, including details such as objects, people, actions, colors, environment, mood, and other notable "
+            "characteristics. Ensure captions are precise, neutral, and descriptive, avoiding unnecessary elaboration or "
+            "subjective interpretation unless explicitly required. Do not reference the rules or instructions in the output; "
+            "only return the formatted caption, attributes, and class_name."
+        )
+
+        # 构建消息
+        messages = [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": image_base64}}, {"type": "text", "text": system_prompt}]}]
+
+        # 构建生成参数
+        params = {"model": model_id, "messages": messages, "max_tokens": max_new_tokens, "temperature": temperature, "top_p": top_p, "stream": True}
+
+        # 使用流式生成
+        buffer = ""
+        for chunk in online_client.stream_generate_text(model_id, messages, **params):
+            if chunk:
+                buffer += chunk
+                yield buffer, buffer
+
+    except Exception as e:
+        logger.error(f"在线图像描述生成失败: {e}")
         yield f"生成出错: {str(e)}", f"生成出错: {str(e)}"
 
 

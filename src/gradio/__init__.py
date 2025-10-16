@@ -3,7 +3,6 @@ Gradio模块主入口
 """
 
 import os
-import sys
 
 import torch
 from loguru import logger
@@ -26,17 +25,11 @@ logger.info(f"Using device={device}")
 
 def create_interface():
     """延迟创建界面，避免循环导入"""
-    from ..model_manager import model_manager
     from .ui_components import create_interface as _create_interface
 
-    # 初始化模型管理器并加载默认模型
+    # 初始化模型管理器（不自动加载模型）
     logger.info("正在初始化模型管理器...")
-    if not model_manager.load_model():
-        logger.error("默认模型加载失败!")
-        sys.exit(1)
-
-    current_model_info = model_manager.get_current_model_info()
-    logger.info(f"当前使用模型: {current_model_info.get('name', 'Unknown')}")
+    logger.info("模型将在用户选择后按需加载，以加快启动速度")
 
     # 创建Gradio界面
     return _create_interface()

@@ -58,6 +58,9 @@ def update_model_status(model_key: str):
     if is_online_model(model_key):
         return f"当前模型: [Online] {model_key.split(':', 1)[1]}"
     else:
+        # 检查模型是否已加载
+        if model_manager.get_current_model() is None:
+            return "当前模型: 未加载 (请选择模型后点击'切换模型'按钮)"
         model_info = model_manager.get_current_model_info()
         return f"当前模型: [Local] {model_info.get('name', 'Unknown')}"
 
