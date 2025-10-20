@@ -129,4 +129,5 @@ disable = [
 [dependency-groups]
 dev = [
   "ruff>=0.11.12",
+  "watchfiles>=0.24.0",
 ]

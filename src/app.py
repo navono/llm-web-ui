@@ -19,13 +19,50 @@ async def start():
     # 创建 Gradio 界面
     gradio_demo = demo()
 
-    # Launch the Gradio interface
-    gradio_demo.queue(max_size=50).launch(
-        mcp_server=False,
-        ssr_mode=False,
-        show_error=True,
-        server_name=server_host,
-        server_port=server_port,
-    )
+    # Launch the Gradio interface with better signal handling
+    import atexit
+    import signal
+    import sys
 
-    logger.info(f"Gradio interface launched successfully on {server_host}:{server_port}!")
+    def cleanup():
+        """清理函数,确保服务器正确关闭"""
+        try:
+            logger.info("Closing Gradio server...")
+            gradio_demo.close()
+            logger.info("Gradio server closed successfully")
+        except Exception as e:
+            logger.error(f"Error closing server: {e}")
+
+    def signal_handler(sig, frame):
+        logger.info(f"Received signal {sig}, shutting down gracefully...")
+        cleanup()
+        sys.exit(0)
+
+    # 注册信号处理器
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    # 注册退出时的清理函数
+    atexit.register(cleanup)
+
+    # 启动 Gradio
+    launch_kwargs = {
+        "mcp_server": False,
+        "ssr_mode": False,
+        "show_error": True,
+        "server_name": server_host,
+        "prevent_thread_lock": False,
+        "share": False,
+        "quiet": False,
+    }
+
+    try:
+        gradio_demo.queue(max_size=50).launch(server_port=server_port, **launch_kwargs)
+        logger.info(f"Gradio interface launched on {server_host}:{server_port}")
+    except OSError as e:
+        if "Cannot find empty port" in str(e) or "Address already in use" in str(e):
+            logger.warning(f"Port {server_port} occupied, trying {server_port + 1}")
+            gradio_demo.queue(max_size=50).launch(server_port=server_port + 1, **launch_kwargs)
+            logger.info(f"Gradio interface launched on {server_host}:{server_port + 1}")
+        else:
+            raise

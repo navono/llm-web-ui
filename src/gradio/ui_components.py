@@ -7,6 +7,7 @@ import gradio as gr
 from ..model_manager import model_manager
 from .multimodal_generation import DEFAULT_MAX_NEW_TOKENS, MAX_MAX_NEW_TOKENS, generate_caption, generate_gif, generate_image, generate_pdf, generate_video, get_initial_pdf_state, load_and_preview_pdf, navigate_pdf_page
 from .online_client import is_online_model
+from .speech import generate_speech_to_text, generate_text_to_speech
 from .text_generation import connect_to_online_server as connect_to_server
 from .text_generation import generate_text, switch_model
 from .theme import css, get_theme
@@ -132,6 +133,18 @@ def create_interface():
                 caption_image_upload = gr.Image(type="pil", label="Image to Caption", height=290, scale=1)
                 caption_submit = gr.Button("Submit", variant="primary", scale=1)
 
+            with gr.TabItem("Speech2Text"), gr.Column():
+                audio_input = gr.Audio(type="filepath", label="Upload Audio or Record", sources=["upload", "microphone"], scale=1)
+                speech_submit = gr.Button("Submit", variant="primary", scale=1)
+
+            with gr.TabItem("Text2Speech"), gr.Column():
+                tts_text_input = gr.Textbox(label="Text Input", placeholder="Enter text to convert to speech...", lines=5, scale=1)
+                with gr.Row():
+                    tts_voice = gr.Dropdown(choices=["alloy", "echo", "fable", "onyx", "nova", "shimmer"], value="alloy", label="Voice", scale=1)
+                    tts_speed = gr.Slider(label="Speed", minimum=0.25, maximum=4.0, step=0.25, value=1.0, scale=1)
+                tts_submit = gr.Button("Generate Speech", variant="primary", scale=1)
+                tts_audio_output = gr.Audio(label="Generated Audio", type="filepath", scale=1)
+
         # 高级选项 - 独立行显示
         with gr.Accordion("Advanced options", open=False), gr.Row():
             max_new_tokens = gr.Slider(label="Max new tokens", minimum=1, maximum=MAX_MAX_NEW_TOKENS, step=1, value=DEFAULT_MAX_NEW_TOKENS, scale=1)
@@ -180,6 +193,10 @@ def create_interface():
         gif_query.submit(fn=generate_gif, inputs=[gif_query, gif_upload, max_new_tokens, temperature, top_p, top_k, repetition_penalty], outputs=[output, markdown_output])
 
         caption_submit.click(fn=generate_caption, inputs=[caption_image_upload, max_new_tokens, temperature, top_p, top_k, repetition_penalty], outputs=[output, markdown_output])
+
+        speech_submit.click(fn=generate_speech_to_text, inputs=[audio_input], outputs=[output, markdown_output])
+
+        tts_submit.click(fn=generate_text_to_speech, inputs=[tts_text_input, tts_voice, tts_speed], outputs=[tts_audio_output, markdown_output])
 
         # PDF相关事件绑定
         pdf_upload.change(fn=load_and_preview_pdf, inputs=[pdf_upload], outputs=[pdf_preview_img, pdf_state, page_info])

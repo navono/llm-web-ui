@@ -5,6 +5,10 @@ install:
 start:
 	uv run -m src.main run
 
+start-dev:
+	@chmod +x scripts/dev-server.sh
+	uv run watchfiles --ignore-paths "./src/__pycache__" --sigint-timeout 5 --sigkill-timeout 10 "bash scripts/dev-server.sh" "./src"
+
 format:
 	uv run ruff format .
 
@@ -25,4 +29,4 @@ install-hooks:
 	chmod +x .git/hooks/pre-commit.sh
 	@echo "Git pre-commit hook installed successfully."
 
-.PHONY: start format lint lint-fix check
+.PHONY: start start-dev format lint lint-fix check
