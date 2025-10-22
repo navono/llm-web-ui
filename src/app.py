@@ -46,6 +46,12 @@ async def start():
     atexit.register(cleanup)
 
     # 启动 Gradio
+    # 检查是否存在 SSL 证书文件
+    import os
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cert_file = os.path.join(project_root, "cert.pem")
+    key_file = os.path.join(project_root, "key.pem")
+    
     launch_kwargs = {
         "mcp_server": False,
         "ssr_mode": False,
@@ -55,6 +61,15 @@ async def start():
         "share": False,
         "quiet": False,
     }
+    
+    # 如果证书文件存在，启用 HTTPS
+    if os.path.exists(cert_file) and os.path.exists(key_file):
+        launch_kwargs["ssl_certfile"] = cert_file
+        launch_kwargs["ssl_keyfile"] = key_file
+        launch_kwargs["ssl_verify"] = False
+        logger.info(f"HTTPS enabled with cert: {cert_file}")
+    else:
+        logger.info("Running in HTTP mode (no SSL certificates found)")
 
     try:
         gradio_demo.queue(max_size=50).launch(server_port=server_port, **launch_kwargs)

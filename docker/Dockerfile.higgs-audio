@@ -1,0 +1,70 @@
+# --- 阶段 1: 安装依赖 ---
+FROM python:3.10-slim as builder
+
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+ENV HTTP_PROXY=$HTTP_PROXY
+ENV HTTPS_PROXY=$HTTPS_PROXY
+ENV NO_PROXY=$NO_PROXY
+
+RUN echo "Acquire::http::Proxy \"${HTTP_PROXY}\";" > /etc/apt/apt.conf.d/proxy.conf && \
+    echo "Acquire::https::Proxy \"${HTTPS_PROXY}\";" >> /etc/apt/apt.conf.d/proxy.conf
+
+# 安装系统依赖
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    ffmpeg \
+    libsndfile1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制依赖文件
+COPY packages/higgs-audio/requirements.txt .
+
+# 安装Python依赖
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 && \
+    pip install --no-cache-dir openai soundfile numpy
+
+# --- 阶段 2: 构建最终镜像 ---
+FROM python:3.10-slim
+
+# 复制从builder阶段安装的Python包
+COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# 安装运行时依赖
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libsndfile1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置工作目录
+WORKDIR /app
+
+# 创建输出目录
+RUN mkdir -p /app/outputs
+
+# 复制必要的文件
+COPY packages/higgs-audio/examples/vllm/run_chat_completion.py /app/
+COPY packages/higgs-audio/examples/voice_prompts /app/voice_prompts
+COPY packages/higgs-audio/examples/transcript /app/transcript
+
+# 设置环境变量
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# 暴露端口
+EXPOSE 8000
+
+# 设置入口点
+ENTRYPOINT ["python", "/app/run_chat_completion.py"]
+
+# 默认命令
+CMD ["--api-base", "http://localhost:8000/v1", "--task", "voice_clone", "--output", "/app/outputs/voice_clone.wav"]

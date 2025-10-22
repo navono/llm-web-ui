@@ -170,3 +170,4 @@ runs
 *.exe
 
 .ruff_cache
+models

@@ -241,10 +241,12 @@ def connect_to_server(server_url: str) -> dict[str, Any]:
 
             return {"success": True, "message": f"成功连接到 {server_url}", "models": model_choices, "server_url": server_url}
         else:
-            return {"success": False, "message": f"无法连接到 {server_url}", "models": [], "server_url": server_url}
+            error_msg = f"无法连接到 {server_url}，请检查服务器地址和端口是否正确"
+            return {"success": False, "error": error_msg, "message": error_msg, "models": [], "server_url": server_url}
     except Exception as e:
         logger.error(f"连接服务器异常: {e}")
-        return {"success": False, "message": f"连接异常: {str(e)}", "models": [], "server_url": server_url}
+        error_msg = f"连接异常: {str(e)}"
+        return {"success": False, "error": error_msg, "message": error_msg, "models": [], "server_url": server_url}
 
 
 def get_online_model_info(model_key: str) -> dict[str, Any]:

@@ -7,7 +7,7 @@ import gradio as gr
 from ..model_manager import model_manager
 from .multimodal_generation import DEFAULT_MAX_NEW_TOKENS, MAX_MAX_NEW_TOKENS, generate_caption, generate_gif, generate_image, generate_pdf, generate_video, get_initial_pdf_state, load_and_preview_pdf, navigate_pdf_page
 from .online_client import is_online_model
-from .speech import generate_speech_to_text, generate_text_to_speech
+from .speech import generate_speech_to_text, generate_text_to_speech, get_available_voices
 from .text_generation import connect_to_online_server as connect_to_server
 from .text_generation import generate_text, switch_model
 from .theme import css, get_theme
@@ -15,28 +15,40 @@ from .theme import css, get_theme
 
 def handle_connect_server(server_url: str):
     """处理连接服务器"""
+    from loguru import logger
+
     result = connect_to_server(server_url)
+    logger.info(f"连接服务器结果: {result}")
 
     if result["success"]:
+        logger.info("连接成功，显示成功提示")
+        gr.Info(f"成功连接到服务器: {server_url}")
         return (
             gr.Row(visible=True),  # online_models_row
             gr.Dropdown(choices=result["models"], value=None),  # online_model_dropdown
             gr.Button(visible=True),  # use_online_model_btn
+            f'<div style="padding:6px 10px;border-radius:6px;background:#e8f5e9;color:#1b5e20;">✅ 已连接到服务器：<b>{server_url}</b></div>',
         )
     else:
+        error_msg = result.get("error", "连接失败")
+        logger.error(f"连接失败，显示错误提示: {error_msg}")
+        gr.Error(f"连接服务器失败: {error_msg}")
         return (
             gr.Row(visible=False),  # online_models_row
             gr.Dropdown(choices=[], value=None),  # online_model_dropdown
             gr.Button(visible=False),  # use_online_model_btn
+            f'<div style="padding:6px 10px;border-radius:6px;background:#ffebee;color:#b71c1c;">❌ 连接服务器失败：{error_msg}</div>',
         )
 
 
 def handle_use_online_model(online_model_key: str):
     """处理使用在线模型"""
     if not online_model_key:
-        return "请先选择在线模型", gr.Dropdown(), gr.Textbox()
+        gr.Warning("请先选择在线模型")
+        return gr.Dropdown(), gr.Textbox()
 
     switch_model(online_model_key)
+    gr.Info(f"已切换到在线模型: {online_model_key.split(':', 1)[1]}")
 
     # 更新当前模型显示
     current_model_status = f"当前模型: [Online] {online_model_key.split(':', 1)[1]}"
@@ -66,6 +78,18 @@ def update_model_status(model_key: str):
         return f"当前模型: [Local] {model_info.get('name', 'Unknown')}"
 
 
+def update_tts_voices():
+    """更新 TTS 声音列表"""
+    result = get_available_voices()
+    if result.get("success"):
+        voices = result.get("voices", [])
+        return gr.Dropdown(choices=voices, value=voices[0] if voices else "alloy")
+    else:
+        # 返回默认声音列表
+        default_voices = []
+        return gr.Dropdown(choices=default_voices, value="alloy")
+
+
 def create_interface():
     """创建完整的Gradio界面"""
 
@@ -89,6 +113,8 @@ def create_interface():
                     server_url_input = gr.Textbox(label="Online模式 - 服务器地址", placeholder="http://localhost:18800/v1", value="http://localhost:18800/v1")
                 with gr.Row():
                     connect_server_btn = gr.Button("连接服务器", variant="primary")
+                # 在线模式状态提示区域（确保无论通知是否可用，都有可见反馈）
+                connect_status = gr.HTML(value="", elem_id="online-connect-status")
                 with gr.Row(visible=False) as online_models_row:
                     online_model_dropdown = gr.Dropdown(choices=[], label="选择在线模型", info="从远程服务器选择模型")
                     use_online_model_btn = gr.Button("使用在线模型", variant="secondary")
@@ -134,16 +160,16 @@ def create_interface():
                 caption_submit = gr.Button("Submit", variant="primary", scale=1)
 
             with gr.TabItem("Speech2Text"), gr.Column():
-                audio_input = gr.Audio(type="filepath", label="Upload Audio or Record", sources=["upload", "microphone"], scale=1)
+                audio_input = gr.Audio(sources=["microphone", "upload"], type="filepath", label="Upload Audio or Record")
                 speech_submit = gr.Button("Submit", variant="primary", scale=1)
 
             with gr.TabItem("Text2Speech"), gr.Column():
                 tts_text_input = gr.Textbox(label="Text Input", placeholder="Enter text to convert to speech...", lines=5, scale=1)
                 with gr.Row():
-                    tts_voice = gr.Dropdown(choices=["alloy", "echo", "fable", "onyx", "nova", "shimmer"], value="alloy", label="Voice", scale=1)
+                    tts_voice = gr.Dropdown(choices=[], value="", label="Voice", scale=1)
                     tts_speed = gr.Slider(label="Speed", minimum=0.25, maximum=4.0, step=0.25, value=1.0, scale=1)
                 tts_submit = gr.Button("Generate Speech", variant="primary", scale=1)
-                tts_audio_output = gr.Audio(label="Generated Audio", type="filepath", scale=1)
+                tts_audio_output = gr.Audio(label="Generated Audio", type="filepath", show_download_button=True, scale=1)
 
         # 高级选项 - 独立行显示
         with gr.Accordion("Advanced options", open=False), gr.Row():
@@ -171,9 +197,13 @@ def create_interface():
         switch_model_btn.click(fn=switch_model, inputs=[model_dropdown], outputs=[current_model_display])
 
         # Online模式事件绑定
-        connect_server_btn.click(fn=handle_connect_server, inputs=[server_url_input], outputs=[online_models_row, online_model_dropdown, use_online_model_btn])
+        connect_server_btn.click(
+            fn=handle_connect_server,
+            inputs=[server_url_input],
+            outputs=[online_models_row, online_model_dropdown, use_online_model_btn, connect_status],
+        )
 
-        use_online_model_btn.click(fn=handle_use_online_model, inputs=[online_model_dropdown], outputs=[model_dropdown, current_model_display])
+        use_online_model_btn.click(fn=handle_use_online_model, inputs=[online_model_dropdown], outputs=[model_dropdown, current_model_display]).then(fn=update_tts_voices, inputs=None, outputs=[tts_voice])
 
         # 多模态事件绑定
         image_submit.click(fn=generate_image, inputs=[image_query, image_upload, max_new_tokens, temperature, top_p, top_k, repetition_penalty], outputs=[output, markdown_output])
