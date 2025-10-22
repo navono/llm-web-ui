@@ -1,0 +1,56 @@
+services:
+  # higgs服务器 - 使用官方镜像
+  higgs-audio:
+    image: bosonai/higgs-audio-vllm:latest
+    ports:
+      - "8008:8000"
+    volumes:
+      # 输出目录
+      - "../outputs:/app/outputs"
+      # 挂载voice_prompts目录，便于自定义声音
+      - "../packages/higgs-audio/examples/voice_prompts:/app/voice_presets"
+      # 挂载整个Hugging Face缓存目录
+      - "/mnt/e/data/hf_models:/root/.cache/huggingface"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CUDA_VISIBLE_DEVICES=0,1
+      - HTTP_PROXY=${PROXY_SERVER:-}
+      - HTTPS_PROXY=${PROXY_SERVER:-}
+      - NO_PROXY=${NO_PROXY:-localhost,127.0.0.1}
+      - CURL_CA_BUNDLE=
+      - REQUESTS_CA_BUNDLE=
+      - SSL_CERT_FILE=
+      - PYTHONHTTPSVERIFY=0
+    restart: unless-stopped
+    # vLLM服务器参数
+    command:
+      [
+        "--served-model-name",
+        "higgs-audio-v2-generation-3B-base",
+        "--model",
+        "bosonai/higgs-audio-v2-generation-3B-base",
+        "--audio-tokenizer-type",
+        "bosonai/higgs-audio-v2-tokenizer",
+        "--limit-mm-per-prompt",
+        "audio=50",
+        "--max-model-len",
+        "8192",
+        "--port",
+        "8000",
+        "--limit-mm-per-prompt",
+        "audio=50",
+        "--gpu-memory-utilization",
+        "0.8",
+        "--tensor-parallel-size",
+        "1",
+        "--disable-mm-preprocessor-cache",
+        "--voice-presets-dir",
+        "/app/voice_presets",
+      ]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

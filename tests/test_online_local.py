@@ -20,8 +20,8 @@ def test_online_functions():
         print("   ✅ 模块导入成功")
 
         # 测试连接函数
-        print("\n2️⃣ 测试连接到localhost:18800...")
-        result = connect_to_server("http://localhost:18800/v1")
+        print("\n2️⃣ 测试连接到localhost:8080...")
+        result = connect_to_server("http://localhost:8080/v1")
 
         if result["success"]:
             print(f"   ✅ {result['message']}")

@@ -18,8 +18,8 @@ def test_server_connection():
 
     try:
         # 测试连接
-        print("1️⃣ 测试连接到localhost:18800...")
-        base_url = "http://localhost:18800/v1"
+        print("1️⃣ 测试连接到localhost:8080...")
+        base_url = "http://localhost:8080/v1"
 
         response = requests.get(f"{base_url}/models", timeout=5)
         if response.status_code == 200:
@@ -64,7 +64,7 @@ def test_online_vision_api():
     print("\n3️⃣ 测试在线视觉API...")
 
     try:
-        base_url = "http://localhost:18800/v1"
+        base_url = "http://localhost:8080/v1"
 
         # 获取模型列表
         response = requests.get(f"{base_url}/models", timeout=5)

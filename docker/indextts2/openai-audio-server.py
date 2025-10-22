@@ -133,7 +133,7 @@ class OpenAISpeechRequest(BaseModel):
     # Standard OpenAI parameters
     model: str = Field(default="indextts2", description="Model to use")
     input: str = Field(..., description="The text to generate audio for")
-    voice: str = Field(default="alloy", description="The voice to use (alloy, echo, fable, onyx, nova, shimmer, or custom)")
+    voice: str = Field(default="", description="The voice to use")
     response_format: str = Field(default="mp3", description="The format of the audio output (mp3, opus, aac, flac, wav, pcm)")
     speed: float = Field(default=1.0, ge=0.25, le=4.0, description="The speed of the generated audio (0.25 to 4.0)")
 

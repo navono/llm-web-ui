@@ -12,6 +12,8 @@ from .text_generation import connect_to_online_server as connect_to_server
 from .text_generation import generate_text, switch_model
 from .theme import css, get_theme
 
+default_online_url = "http://localhost:8080/v1"
+
 
 def handle_connect_server(server_url: str):
     """处理连接服务器"""
@@ -43,9 +45,13 @@ def handle_connect_server(server_url: str):
 
 def handle_use_online_model(online_model_key: str):
     """处理使用在线模型"""
+    from loguru import logger
+
+    logger.info(f"handle_use_online_model 被调用，模型: {online_model_key}")
+
     if not online_model_key:
         gr.Warning("请先选择在线模型")
-        return gr.Dropdown(), gr.Textbox()
+        return gr.Dropdown(), gr.Textbox(), gr.Dropdown()
 
     switch_model(online_model_key)
     gr.Info(f"已切换到在线模型: {online_model_key.split(':', 1)[1]}")
@@ -60,9 +66,34 @@ def handle_use_online_model(online_model_key: str):
     # 添加在线模型到选择列表
     model_choices.append((online_model_key.split(":", 1)[1], online_model_key))
 
+    # 如果选择的是 indextts2 模型，自动更新语音列表
+    voices_dropdown = gr.Dropdown()
+    model_name = online_model_key.split(":", 1)[1].lower()
+    logger.info(f"检查模型名称: {model_name}")
+    if "indextts2" in model_name or "tts" in model_name:
+        logger.info("检测到 TTS 模型，开始获取语音列表...")
+        # 自动请求语音列表
+        voices_result = get_available_voices()
+        logger.info(f"语音列表结果: {voices_result}")
+        if voices_result.get("success"):
+            voices = voices_result.get("voices", [])
+            if voices:
+                voices_dropdown = gr.Dropdown(choices=voices, value=voices[0])
+                gr.Info(f"已加载 {len(voices)} 个语音选项")
+                logger.info(f"成功更新语音下拉框，共 {len(voices)} 个选项")
+            else:
+                voices_dropdown = gr.Dropdown(choices=[], value="")
+                logger.warning("语音列表为空")
+        else:
+            voices_dropdown = gr.Dropdown(choices=[], value="")
+            logger.error(f"获取语音列表失败: {voices_result.get('error')}")
+    else:
+        logger.info("非 TTS 模型，跳过语音列表加载")
+
     return (
         gr.Dropdown(choices=model_choices, value=online_model_key),  # model_dropdown
         current_model_status,  # current_model_display
+        voices_dropdown,  # tts_voice
     )
 
 
@@ -110,7 +141,7 @@ def create_interface():
 
             with gr.Column(scale=1):
                 with gr.Row():
-                    server_url_input = gr.Textbox(label="Online模式 - 服务器地址", placeholder="http://localhost:18800/v1", value="http://localhost:18800/v1")
+                    server_url_input = gr.Textbox(label="Online模式 - 服务器地址", placeholder=default_online_url, value=default_online_url)
                 with gr.Row():
                     connect_server_btn = gr.Button("连接服务器", variant="primary")
                 # 在线模式状态提示区域（确保无论通知是否可用，都有可见反馈）
@@ -203,7 +234,7 @@ def create_interface():
             outputs=[online_models_row, online_model_dropdown, use_online_model_btn, connect_status],
         )
 
-        use_online_model_btn.click(fn=handle_use_online_model, inputs=[online_model_dropdown], outputs=[model_dropdown, current_model_display]).then(fn=update_tts_voices, inputs=None, outputs=[tts_voice])
+        use_online_model_btn.click(fn=handle_use_online_model, inputs=[online_model_dropdown], outputs=[model_dropdown, current_model_display, tts_voice])
 
         # 多模态事件绑定
         image_submit.click(fn=generate_image, inputs=[image_query, image_upload, max_new_tokens, temperature, top_p, top_k, repetition_penalty], outputs=[output, markdown_output])

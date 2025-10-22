@@ -18,8 +18,8 @@ def test_online_multimodal_complete():
 
     try:
         # 步骤1: 连接到服务器
-        print("1️⃣ 连接到localhost:18800...")
-        base_url = "http://localhost:18800/v1"
+        print("1️⃣ 连接到localhost:8080...")
+        base_url = "http://localhost:8080/v1"
 
         response = requests.get(f"{base_url}/models", timeout=5)
         if response.status_code != 200:

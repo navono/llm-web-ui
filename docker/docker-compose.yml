@@ -1,4 +1,69 @@
+networks:
+  llm-network:
+    driver: bridge
+
 services:
+  nginx:
+    image: nginx:alpine
+    container_name: llm-api-gateway
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - llm-network
+    depends_on:
+      - open-llm-vtuber
+      - indextts2
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  open-llm-vtuber:
+    image: open-llm-vtuber:latest
+    container_name: open-llm-vtuber
+    networks:
+      - llm-network
+    expose:
+      - "12393"
+    volumes:
+      # Configuration files
+      - ./open-llm-vtuber/conf.yaml:/app/conf.yaml:ro
+      - ./open-llm-vtuber/mcp_servers.json:/app/mcp_servers.json:ro
+      # User data directories
+      - ./open-llm-vtuber/avatars:/app/avatars
+      - ./open-llm-vtuber/backgrounds:/app/backgrounds
+      - ./open-llm-vtuber/characters:/app/characters
+      - ./open-llm-vtuber/live2d-models:/app/live2d-models
+      # Cache and models
+      - ./open-llm-vtuber/cache:/app/cache
+      - ./open-llm-vtuber/models:/app/models
+      # Logs
+      - ./open-llm-vtuber/logs:/app/logs
+    environment:
+      - HF_HOME=/app/models
+      - MODELSCOPE_CACHE=/app/models
+      # Uncomment to use Hugging Face mirror
+      # - HF_ENDPOINT=https://hf-mirror.com
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:12393/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
   indextts2:
     build:
       context: ..
@@ -9,8 +74,10 @@ services:
         NO_PROXY: ${NO_PROXY:-}
     image: indextts2:latest
     container_name: indextts2
-    ports:
-      - "12234:12234"
+    networks:
+      - llm-network
+    expose:
+      - "12234"
     volumes:
       # 挂载整个 HuggingFace 模型目录以支持符号链接
       - "/mnt/e/data/hf_models/hub/models--IndexTeam--IndexTTS-2:/app/models_cache"
@@ -25,62 +92,6 @@ services:
       - CUDA_VISIBLE_DEVICES=0
       - PORT=12234
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-
-  # higgs服务器 - 使用官方镜像
-  higgs-audio:
-    image: bosonai/higgs-audio-vllm:latest
-    ports:
-      - "8008:8000"
-    volumes:
-      # 输出目录
-      - "../outputs:/app/outputs"
-      # 挂载voice_prompts目录，便于自定义声音
-      - "../packages/higgs-audio/examples/voice_prompts:/app/voice_presets"
-      # 挂载整个Hugging Face缓存目录
-      - "/mnt/e/data/hf_models:/root/.cache/huggingface"
-    environment:
-      - PYTHONUNBUFFERED=1
-      - CUDA_VISIBLE_DEVICES=0,1
-      - HTTP_PROXY=${PROXY_SERVER:-}
-      - HTTPS_PROXY=${PROXY_SERVER:-}
-      - NO_PROXY=${NO_PROXY:-localhost,127.0.0.1}
-      - CURL_CA_BUNDLE=
-      - REQUESTS_CA_BUNDLE=
-      - SSL_CERT_FILE=
-      - PYTHONHTTPSVERIFY=0
-    restart: unless-stopped
-    # vLLM服务器参数
-    command:
-      [
-        "--served-model-name",
-        "higgs-audio-v2-generation-3B-base",
-        "--model",
-        "bosonai/higgs-audio-v2-generation-3B-base",
-        "--audio-tokenizer-type",
-        "bosonai/higgs-audio-v2-tokenizer",
-        "--limit-mm-per-prompt",
-        "audio=50",
-        "--max-model-len",
-        "8192",
-        "--port",
-        "8000",
-        "--limit-mm-per-prompt",
-        "audio=50",
-        "--gpu-memory-utilization",
-        "0.8",
-        "--tensor-parallel-size",
-        "1",
-        "--disable-mm-preprocessor-cache",
-        "--voice-presets-dir",
-        "/app/voice_presets",
-      ]
     deploy:
       resources:
         reservations:
