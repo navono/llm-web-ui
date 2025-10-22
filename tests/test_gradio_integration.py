@@ -19,7 +19,7 @@ def test_complete_online_multimodal():
     try:
         # 步骤1: 测试服务器连接
         print("1️⃣ 测试在线服务器连接...")
-        base_url = "http://localhost:18800/v1"
+        base_url = "http://localhost:8080/v1"
 
         response = requests.get(f"{base_url}/models", timeout=5)
         if response.status_code != 200:

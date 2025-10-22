@@ -21,49 +21,59 @@ def get_available_voices() -> dict:
         dict: 包含 success 和 voices/error 的字典
     """
     try:
-        # 检查是否为在线模型
-        if not is_online_model(online_client.model_id):
-            return {"success": False, "error": "需要连接到在线服务器"}
+        # 尝试多个可能的端点
+        endpoints = [
+            "/voices",  # 标准端点
+            "/tts/voices",  # 备用端点
+        ]
 
-        # 尝试调用 /v1/tts/voices 端点
-        url = f"{online_client.base_url}/tts/voices"
-        logger.info(f"获取声音列表: {url}")
+        for endpoint in endpoints:
+            try:
+                url = f"{online_client.base_url}{endpoint}"
+                logger.info(f"尝试获取声音列表: {url}")
 
-        response = online_client.session.get(url, timeout=10)
+                response = online_client.session.get(url, timeout=10)
 
-        if response.status_code == 200:
-            result = response.json()
-            # 解析返回的声音列表
-            voices = []
+                if response.status_code == 200:
+                    result = response.json()
+                    logger.debug(f"Voice list: {result}")
+                    # 解析返回的声音列表
+                    voices = []
 
-            # 处理不同的返回格式
-            if "audio_files" in result and isinstance(result["audio_files"], dict):
-                # IndexTTS 格式: {"audio_files": {"0": "file1.wav", "1": "file2.wav"}}
-                voices = list(result["audio_files"].values())
-            elif "voices" in result:
-                # 标准格式: {"voices": ["voice1", "voice2"]}
-                voices = result["voices"]
-            elif "data" in result:
-                # OpenAI 格式: {"data": [{"id": "voice1"}, {"id": "voice2"}]}
-                voices = [v.get("id", v.get("name", str(v))) for v in result["data"]]
+                    # 处理不同的返回格式
+                    if "audio_files" in result and isinstance(result["audio_files"], dict):
+                        # IndexTTS 格式: {"audio_files": {"0": "file1.wav", "1": "file2.wav"}}
+                        voices = list(result["audio_files"].values())
+                    elif "custom_voices" in result:
+                        # IndexTTS 自定义格式: {"custom_voices": ["voice1", "voice2"]}
+                        voices = result["custom_voices"]
+                    elif "indexed_files" in result and isinstance(result["indexed_files"], dict):
+                        # IndexTTS 索引格式: {"indexed_files": {"0": "file1.wav"}}
+                        voices = list(result["indexed_files"].values())
+                    elif "voices" in result:
+                        # 标准格式: {"voices": ["voice1", "voice2"]}
+                        voices = result["voices"]
+                    elif "data" in result:
+                        # OpenAI 格式: {"data": [{"id": "voice1"}, {"id": "voice2"}]}
+                        voices = [v.get("id", v.get("name", str(v))) for v in result["data"]]
 
-            # 添加标准 OpenAI 声音
-            standard_voices = []
-            all_voices = standard_voices + [v for v in voices if v not in standard_voices]
+                    # 去重
+                    all_voices = list(dict.fromkeys(voices))
 
-            logger.info(f"获取到 {len(all_voices)} 个声音")
-            return {"success": True, "voices": all_voices}
-        else:
-            # 如果端点不存在，返回默认声音列表
-            logger.warning(f"无法获取声音列表 (HTTP {response.status_code})，使用默认列表")
-            default_voices = []
-            return {"success": True, "voices": default_voices}
+                    logger.info(f"从 {endpoint} 获取到 {len(all_voices)} 个声音")
+                    return {"success": True, "voices": all_voices}
+
+            except Exception as e:
+                logger.debug(f"端点 {endpoint} 请求失败: {str(e)}")
+                continue
+
+        # 所有端点都失败，返回空列表
+        logger.warning("无法从任何端点获取声音列表，返回空列表")
+        return {"success": True, "voices": []}
 
     except Exception as e:
         logger.error(f"获取声音列表异常: {str(e)}", exc_info=True)
-        # 返回默认声音列表
-        default_voices = []
-        return {"success": True, "voices": default_voices}
+        return {"success": True, "voices": []}
 
 
 def generate_speech_to_text(audio_path: str) -> tuple[str, str]:
@@ -163,13 +173,13 @@ def transcribe_audio(audio_path: str, model: str = "whisper-1") -> dict:
         return {"success": False, "error": error_msg}
 
 
-def generate_text_to_speech(text: str, voice: str = "alloy", speed: float = 1.0) -> tuple[str | None, str]:
+def generate_text_to_speech(text: str, voice: str = "", speed: float = 1.0) -> tuple[str | None, str]:
     """
     文字转语音功能，使用 OpenAI 兼容的 API
 
     Args:
         text: 要转换的文本
-        voice: 语音类型 (alloy, echo, fable, onyx, nova, shimmer)
+        voice: 语音类型
         speed: 语速 (0.25 - 4.0)
 
     Returns:
@@ -216,7 +226,7 @@ def generate_text_to_speech(text: str, voice: str = "alloy", speed: float = 1.0)
         return None, f"**Error:** {error_msg}"
 
 
-def synthesize_speech(text: str, model: str = "tts-1", voice: str = "alloy", speed: float = 1.0) -> dict:
+def synthesize_speech(text: str, model: str = "tts-1", voice: str = "", speed: float = 1.0) -> dict:
     """
     使用 OpenAI 兼容的 API 进行语音合成
 

@@ -13,7 +13,7 @@ from loguru import logger
 class OnlineClient:
     """Online模式客户端，用于连接远程服务端"""
 
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(self, base_url: str = "http://localhost:8080/v1"):
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
         self.session.headers.update({"Content-Type": "application/json", "Accept": "application/json"})
@@ -216,7 +216,7 @@ class OnlineClient:
 
 
 # 全局online客户端实例
-online_client = OnlineClient("http://localhost:18800/v1")
+online_client = OnlineClient("http://localhost:8080/v1")
 
 
 def connect_to_server(server_url: str) -> dict[str, Any]:
