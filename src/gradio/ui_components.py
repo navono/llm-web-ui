@@ -5,6 +5,7 @@ Gradio UI组件
 import gradio as gr
 
 from ..model_manager import model_manager
+from .jina_tools import generate_embeddings, read_url, rerank_documents, search_web
 from .multimodal_generation import DEFAULT_MAX_NEW_TOKENS, MAX_MAX_NEW_TOKENS, generate_caption, generate_gif, generate_image, generate_pdf, generate_video, get_initial_pdf_state, load_and_preview_pdf, navigate_pdf_page
 from .online_client import is_online_model
 from .speech import generate_speech_to_text, generate_text_to_speech, get_available_voices
@@ -13,6 +14,24 @@ from .text_generation import generate_text, switch_model
 from .theme import css, get_theme
 
 default_online_url = "http://localhost:8080/v1"
+
+
+def handle_set_api_key(api_key: str):
+    """处理设置 API Key"""
+    from loguru import logger
+
+    from .online_client import online_client
+
+    if api_key and api_key.strip():
+        online_client.set_api_key(api_key.strip())
+        logger.info("API Key 已更新")
+        gr.Info("✅ API Key 已设置")
+        return '<div style="padding:6px 10px;border-radius:6px;background:#e8f5e9;color:#1b5e20;">🔑 API Key 已设置</div>'
+    else:
+        online_client.set_api_key("")
+        logger.info("API Key 已清除")
+        gr.Info("API Key 已清除")
+        return '<div style="padding:6px 10px;border-radius:6px;background:#fff3e0;color:#e65100;">⚠️ API Key 已清除</div>'
 
 
 def handle_connect_server(server_url: str):
@@ -39,7 +58,7 @@ def handle_connect_server(server_url: str):
             gr.Row(visible=False),  # online_models_row
             gr.Dropdown(choices=[], value=None),  # online_model_dropdown
             gr.Button(visible=False),  # use_online_model_btn
-            f'<div style="padding:6px 10px;border-radius:6px;background:#ffebee;color:#b71c1c;">❌ 连接服务器失败：{error_msg}</div>',
+            f'<div style="padding:6px 10px;border-resize:6px;background:#ffebee;color:#b71c1c;">❌ 连接服务器失败：{error_msg}</div>',
         )
 
 
@@ -143,7 +162,12 @@ def create_interface():
                 with gr.Row():
                     server_url_input = gr.Textbox(label="Online模式 - 服务器地址", placeholder=default_online_url, value=default_online_url)
                 with gr.Row():
+                    api_key_input = gr.Textbox(label="API Key", placeholder="sk-your-api-key-here", type="password", info="用于所有 API 请求的认证密钥")
+                    set_api_key_btn = gr.Button("设置 API Key", variant="secondary", scale=0)
+                with gr.Row():
                     connect_server_btn = gr.Button("连接服务器", variant="primary")
+                # API Key 状态提示
+                api_key_status = gr.HTML(value="", elem_id="api-key-status")
                 # 在线模式状态提示区域（确保无论通知是否可用，都有可见反馈）
                 connect_status = gr.HTML(value="", elem_id="online-connect-status")
                 with gr.Row(visible=False) as online_models_row:
@@ -157,6 +181,12 @@ def create_interface():
         with gr.Row(), gr.Tabs():
             with gr.TabItem("Text Generation"), gr.Column():
                 text_query = gr.Textbox(label="Text Input", placeholder="Enter your text prompt here...", lines=3, scale=3)
+                with gr.Accordion("Advanced options", open=False), gr.Row():
+                    max_new_tokens = gr.Slider(label="Max new tokens", minimum=1, maximum=MAX_MAX_NEW_TOKENS, step=1, value=DEFAULT_MAX_NEW_TOKENS, scale=1)
+                    temperature = gr.Slider(label="Temperature", minimum=0.1, maximum=4.0, step=0.1, value=0.6, scale=1)
+                    top_p = gr.Slider(label="Top-p (nucleus sampling)", minimum=0.05, maximum=1.0, step=0.05, value=0.9, scale=1)
+                    top_k = gr.Slider(label="Top-k", minimum=1, maximum=1000, step=1, value=50, scale=1)
+                    repetition_penalty = gr.Slider(label="Repetition penalty", minimum=1.0, maximum=2.0, step=0.05, value=1.2, scale=1)
                 text_submit = gr.Button("Submit", variant="primary", scale=1)
 
             with gr.TabItem("Image Inference"), gr.Column():
@@ -202,13 +232,51 @@ def create_interface():
                 tts_submit = gr.Button("Generate Speech", variant="primary", scale=1)
                 tts_audio_output = gr.Audio(label="Generated Audio", type="filepath", show_download_button=True, scale=1)
 
-        # 高级选项 - 独立行显示
-        with gr.Accordion("Advanced options", open=False), gr.Row():
-            max_new_tokens = gr.Slider(label="Max new tokens", minimum=1, maximum=MAX_MAX_NEW_TOKENS, step=1, value=DEFAULT_MAX_NEW_TOKENS, scale=1)
-            temperature = gr.Slider(label="Temperature", minimum=0.1, maximum=4.0, step=0.1, value=0.6, scale=1)
-            top_p = gr.Slider(label="Top-p (nucleus sampling)", minimum=0.05, maximum=1.0, step=0.05, value=0.9, scale=1)
-            top_k = gr.Slider(label="Top-k", minimum=1, maximum=1000, step=1, value=50, scale=1)
-            repetition_penalty = gr.Slider(label="Repetition penalty", minimum=1.0, maximum=2.0, step=0.05, value=1.2, scale=1)
+            with gr.TabItem("Embeddings"), gr.Column():
+                gr.Markdown("### 文本向量化\n将文本转换为向量表示，每行一个文本")
+                embeddings_text_input = gr.Textbox(label="文本输入", placeholder="输入文本，每行一个\n例如：\nHello world\n你好世界\nBonjour le monde", lines=8, scale=1)
+                embeddings_model = gr.Dropdown(choices=["jina-embeddings-v3", "jina-embeddings-v4"], value="jina-embeddings-v3", label="模型", scale=1)
+                with gr.Accordion("Advanced options", open=False):
+                    embeddings_task = gr.Dropdown(choices=["text-matching", "retrieval.query", "retrieval.passage", "separation", "classification", "none"], value="text-matching", label="下游任务 (task)", info="针对不同任务优化向量")
+                    embeddings_encoding = gr.Dropdown(
+                        choices=[("默认 (浮点型)", "float"), ("二进制 (int8)", "int8"), ("二进制 (uint8)", "uint8"), ("Base64 (字符串)", "base64")],
+                        value="float",
+                        label="输出数据类型 (encoding_format)",
+                        info="float: 浮点数 | int8/uint8: 整数 | base64: 字符串",
+                    )
+                embeddings_submit = gr.Button("生成 Embeddings", variant="primary", scale=1)
+
+            with gr.TabItem("Rerank"), gr.Column():
+                gr.Markdown("### 文档重排序\n根据查询相关性对文档进行排序")
+                rerank_query = gr.Textbox(label="查询文本", placeholder="例如：Python programming tutorial", lines=2, scale=1)
+                rerank_docs_input = gr.Textbox(label="文档列表", placeholder="输入文档，每行一个\n例如：\nLearn Python basics in 30 days\nJavaScript for beginners\nAdvanced Python programming guide", lines=8, scale=1)
+                rerank_model = gr.Dropdown(choices=["jina-reranker-v2-base-multilingual", "jina-reranker-m0", "jina-reranker-v3"], value="jina-reranker-v2-base-multilingual", label="模型", scale=1)
+                with gr.Accordion("Advanced options", open=False):
+                    rerank_top_n = gr.Slider(label="返回数量", minimum=1, maximum=20, step=1, value=3)
+                rerank_submit = gr.Button("重排序", variant="primary", scale=1)
+
+            with gr.TabItem("Search"), gr.Column():
+                gr.Markdown("### 网页搜索\n搜索互联网内容或抓取特定网页")
+                search_query = gr.Textbox(label="搜索查询", placeholder="例如：Python programming tutorial", lines=1, scale=1)
+                search_url = gr.Textbox(label="或输入 URL", placeholder="例如：https://example.com", lines=1, scale=1)
+                with gr.Accordion("Advanced options", open=False):
+                    search_respond_with = gr.Dropdown(
+                        choices=["default", "no-content", "markdown", "html", "text", "screenshot"], value="default", label="响应格式 (X-Respond-With)", info="default: 完整内容 | no-content: 仅元数据 | markdown: Markdown 格式"
+                    )
+                    with gr.Row():
+                        search_with_images = gr.Checkbox(label="包含图片摘要 (X-With-Images-Summary)", value=False)
+                        search_with_links = gr.Checkbox(label="包含链接摘要 (X-With-Links-Summary)", value=False)
+                search_submit = gr.Button("搜索", variant="primary", scale=1)
+
+            with gr.TabItem("Reader"), gr.Column():
+                gr.Markdown("### 网页内容提取\n将网页转换为 LLM 友好的干净文本")
+                reader_url = gr.Textbox(label="URL", placeholder="例如：https://news.ycombinator.com", lines=1, scale=1)
+                with gr.Accordion("Advanced options", open=False):
+                    reader_engine = gr.Dropdown(choices=["direct", "browser"], value="direct", label="引擎 (X-Engine)", info="direct: 快速直接抓取 | browser: 使用浏览器渲染")
+                    with gr.Row():
+                        reader_with_images = gr.Checkbox(label="包含图片摘要 (X-With-Images-Summary)", value=False)
+                        reader_with_links = gr.Checkbox(label="包含链接摘要 (X-With-Links-Summary)", value=False)
+                reader_submit = gr.Button("读取", variant="primary", scale=1)
 
         # 输出行 - 左右布局
         with gr.Row():
@@ -228,6 +296,14 @@ def create_interface():
         switch_model_btn.click(fn=switch_model, inputs=[model_dropdown], outputs=[current_model_display])
 
         # Online模式事件绑定
+        # API Key 设置
+        set_api_key_btn.click(
+            fn=handle_set_api_key,
+            inputs=[api_key_input],
+            outputs=[api_key_status],
+        )
+
+        # 连接服务器
         connect_server_btn.click(
             fn=handle_connect_server,
             inputs=[server_url_input],
@@ -258,6 +334,18 @@ def create_interface():
         speech_submit.click(fn=generate_speech_to_text, inputs=[audio_input], outputs=[output, markdown_output])
 
         tts_submit.click(fn=generate_text_to_speech, inputs=[tts_text_input, tts_voice, tts_speed], outputs=[tts_audio_output, markdown_output])
+
+        # Embeddings 事件绑定
+        embeddings_submit.click(fn=generate_embeddings, inputs=[embeddings_text_input, embeddings_model, embeddings_task, embeddings_encoding], outputs=[output, markdown_output])
+
+        # Rerank 事件绑定
+        rerank_submit.click(fn=rerank_documents, inputs=[rerank_query, rerank_docs_input, rerank_model, rerank_top_n], outputs=[output, markdown_output])
+
+        # Search 事件绑定
+        search_submit.click(fn=search_web, inputs=[search_query, search_url, search_respond_with, search_with_images, search_with_links], outputs=[output, markdown_output])
+
+        # Reader 事件绑定
+        reader_submit.click(fn=read_url, inputs=[reader_url, reader_engine, reader_with_images, reader_with_links], outputs=[output, markdown_output])
 
         # PDF相关事件绑定
         pdf_upload.change(fn=load_and_preview_pdf, inputs=[pdf_upload], outputs=[pdf_preview_img, pdf_state, page_info])

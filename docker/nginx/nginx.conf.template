@@ -1,0 +1,189 @@
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log warn;
+pid /var/run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log /var/log/nginx/access.log main;
+
+    # ==========================================
+    # 自定义 API Key 验证（使用环境变量）
+    # ==========================================
+    # 定义有效的 API keys（从环境变量读取）
+    map $http_x_api_key $api_key_valid {
+        default 0;
+        "${API_KEY_1}" 1;
+        "${API_KEY_2}" 1;
+        "${API_KEY_3}" 1;
+    }
+
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+    client_max_body_size 100M;
+
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml+rss application/rss+xml font/truetype font/opentype application/vnd.ms-fontobject image/svg+xml;
+
+    # Upstream definitions
+    upstream open-llm-vtuber {
+        server open-llm-vtuber:12393;
+        keepalive 32;
+    }
+
+    upstream indextts2 {
+        server indextts2:12234;
+        keepalive 32;
+    }
+
+    server {
+        listen 8080;
+        server_name _;
+
+        # Health check endpoint
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+
+        # ==========================================
+        # TTS - Text-to-Speech (IndexTTS2)
+        # ==========================================
+        location /v1/audio/speech {
+            proxy_pass http://indextts2/v1/audio/speech;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            proxy_connect_timeout 300s;
+            proxy_send_timeout 300s;
+            proxy_read_timeout 300s;
+            
+            proxy_buffering off;
+        }
+
+        # TTS Voices endpoint
+        location /v1/voices {
+            proxy_pass http://indextts2/v1/voices;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+
+        location /v1/tts/voices {
+            proxy_pass http://indextts2/v1/tts/voices;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+
+        # ==========================================
+        # ASR - Automatic Speech Recognition
+        # ==========================================
+        location /v1/audio/transcriptions {
+            proxy_pass http://open-llm-vtuber/v1/audio/transcriptions;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            proxy_connect_timeout 300s;
+            proxy_send_timeout 300s;
+            proxy_read_timeout 300s;
+            
+            proxy_buffering off;
+        }
+
+        # ==========================================
+        # 模型列表端点
+        # ==========================================
+        location = /v1/models {
+            default_type application/json;
+            return 200 '{
+                "object": "list",
+                "data": [
+                    {
+                        "id": "indextts2",
+                        "object": "model",
+                        "created": 1677610602,
+                        "owned_by": "custom",
+                        "capabilities": ["tts"]
+                    },
+                    {
+                        "id": "funASR",
+                        "object": "model",
+                        "created": 1677610603,
+                        "owned_by": "custom",
+                        "capabilities": ["transcription"]
+                    }
+                ]
+            }';
+        }
+
+        # ==========================================
+        # Jina Embeddings API 代理（带自定义 key 验证）
+        # ==========================================
+        location /v1/embeddings {
+            # API Key 验证
+            if ($api_key_valid = 0) {
+                return 401 '{"error": {"message": "Invalid API key. Please provide a valid X-API-Key header.", "type": "invalid_request_error", "code": "invalid_api_key"}}';
+            }
+            
+            # 添加 Content-Type 头用于错误响应
+            add_header Content-Type application/json always;
+            
+            # 代理到 Jina AI API
+            proxy_pass https://api.jina.ai/v1/embeddings;
+            proxy_ssl_server_name on;
+            proxy_http_version 1.1;
+            
+            # 转发必要的请求头
+            proxy_set_header Host api.jina.ai;
+            proxy_set_header Content-Type application/json;
+            proxy_set_header Accept application/json;
+            
+            # 使用环境变量中的 Jina API key
+            proxy_set_header Authorization "Bearer ${JINA_API_KEY}";
+            
+            # 标准代理头
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 超时设置（embeddings 可能需要较长时间）
+            proxy_connect_timeout 60s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+            
+            # 禁用缓冲以支持流式响应
+            proxy_buffering off;
+            
+            # SSL 设置
+            proxy_ssl_protocols TLSv1.2 TLSv1.3;
+            proxy_ssl_verify off;
+        }
+    }
+}

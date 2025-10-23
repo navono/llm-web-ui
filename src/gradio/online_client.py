@@ -13,10 +13,24 @@ from loguru import logger
 class OnlineClient:
     """Online模式客户端，用于连接远程服务端"""
 
-    def __init__(self, base_url: str = "http://localhost:8080/v1"):
+    def __init__(self, base_url: str = "http://localhost:8080/v1", api_key: str = ""):
         self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
         self.session = requests.Session()
         self.session.headers.update({"Content-Type": "application/json", "Accept": "application/json"})
+        if api_key:
+            self.session.headers.update({"X-API-Key": api_key})
+    
+    def set_api_key(self, api_key: str):
+        """设置 API Key"""
+        self.api_key = api_key
+        if api_key:
+            self.session.headers.update({"X-API-Key": api_key})
+            logger.info("API Key 已设置")
+        else:
+            if "X-API-Key" in self.session.headers:
+                del self.session.headers["X-API-Key"]
+            logger.info("API Key 已清除")
 
     def test_connection(self) -> bool:
         """测试与服务端的连接"""
