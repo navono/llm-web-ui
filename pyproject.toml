@@ -20,6 +20,7 @@ dependencies = [
   "opencv-python>=4.12.0.88",
   "pymupdf>=1.24.0",
   "accelerate>=1.2.0",
+  "git-filter-repo>=2.47.0",
 ]
 description = "LLM Web Ui project"
 license = {text = "MIT"}
