@@ -27,8 +27,8 @@ services:
       - "8080:8080"
     environment:
       # API Keys - 从 .env 文件读取
-      - API_KEY_1=${API_KEY_1:-sk-llm-web-ui-2024}
-      - API_KEY_2=${API_KEY_2:-sk-local-dev-key}
+      - API_KEY_1=${API_KEY_1}
+      - API_KEY_2=${API_KEY_2}
       - JINA_API_KEY=${JINA_API_KEY}
     volumes:
       # 直接挂载配置文件，使用 entrypoint 脚本处理环境变量
