@@ -5,6 +5,21 @@ networks:
     driver: bridge
 
 services:
+  embeddings-transform:
+    image: node:18-alpine
+    container_name: llm-web-ui-embeddings-transform
+    working_dir: /app
+    command: node transform-embeddings.js
+    volumes:
+      - ./transform-embeddings.js:/app/transform-embeddings.js:ro
+    environment:
+      - JINA_API_KEY=${JINA_API_KEY}
+    networks:
+      - llm-network
+    expose:
+      - "9000"
+    restart: unless-stopped
+
   nginx:
     image: nginx:alpine
     container_name: llm-web-ui-gateway
@@ -24,6 +39,7 @@ services:
     depends_on:
       - open-llm-vtuber
       - indextts2
+      - embeddings-transform
     restart: unless-stopped
     healthcheck:
       test:
