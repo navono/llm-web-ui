@@ -49,7 +49,7 @@ RUN uv venv .venv && \
 
 # 安装 openai-audio-server 所需的额外依赖
 RUN . .venv/bin/activate && \
-    uv pip install fastapi uvicorn loguru pydantic python-multipart
+    uv pip install fastapi uvicorn loguru pydantic python-multipart aiohttp
 
 
 # --- 阶段 2: 运行环境 ---
@@ -85,8 +85,10 @@ WORKDIR /app
 # 从 builder 阶段复制 index-tts 和虚拟环境
 COPY --from=builder /app/index-tts /app/index-tts
 
-# 复制 openai-audio-server.py
+# 复制本地文件
 COPY docker/indextts2/openai-audio-server.py /app/openai-audio-server.py
+COPY docker/indextts2/book_speech.py /app/book_speech.py
+
 
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1

@@ -5,6 +5,7 @@ Online模式客户端模块
 
 import json
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 from loguru import logger
@@ -20,7 +21,8 @@ class OnlineClient:
         self.session.headers.update({"Content-Type": "application/json", "Accept": "application/json"})
         if api_key:
             self.session.headers.update({"X-API-Key": api_key})
-    
+        self._configure_proxy()
+
     def set_api_key(self, api_key: str):
         """设置 API Key"""
         self.api_key = api_key
@@ -31,6 +33,20 @@ class OnlineClient:
             if "X-API-Key" in self.session.headers:
                 del self.session.headers["X-API-Key"]
             logger.info("API Key 已清除")
+
+    def _configure_proxy(self):
+        """根据目标地址决定是否禁用环境代理，确保本地网关不走代理"""
+        parsed = urlparse(self.base_url)
+        host = (parsed.hostname or "").lower()
+        is_local = host in {"localhost", "127.0.0.1", "0.0.0.0"} or host.startswith(("192.168.", "10.", "172."))
+        if is_local:
+            # 避免本地/内网地址走外部代理，避免连接失败
+            self.session.trust_env = False
+            self.session.proxies = {}
+            logger.debug(f"Proxy disabled for local target: {self.base_url}")
+        else:
+            self.session.trust_env = True
+            logger.debug(f"Proxy will follow environment for target: {self.base_url}")
 
     def test_connection(self) -> bool:
         """测试与服务端的连接"""
@@ -240,8 +256,11 @@ def connect_to_server(server_url: str) -> dict[str, Any]:
     try:
         # 更新客户端URL
         online_client.base_url = server_url.rstrip("/")
+        # 根据目标地址调整代理设置（本地禁用代理，外网遵循环境变量）
+        online_client._configure_proxy()
 
         # 测试连接
+        logger.debug(f"测试连接到 {online_client.base_url}")
         if online_client.test_connection():
             # 获取模型列表
             models = online_client.get_available_models()

@@ -4,7 +4,6 @@ Gradio UI组件
 
 import gradio as gr
 
-from ..model_manager import model_manager
 from .jina_tools import generate_embeddings, read_url, rerank_documents, search_web
 from .multimodal_generation import DEFAULT_MAX_NEW_TOKENS, MAX_MAX_NEW_TOKENS, generate_caption, generate_gif, generate_image, generate_pdf, generate_video, get_initial_pdf_state, load_and_preview_pdf, navigate_pdf_page
 from .online_client import is_online_model
@@ -38,8 +37,17 @@ def handle_connect_server(server_url: str):
     """处理连接服务器"""
     from loguru import logger
 
-    result = connect_to_server(server_url)
-    logger.info(f"连接服务器结果: {result}")
+    # 强制打印，确保函数被调用
+    print(f"\n{'=' * 50}\n[CONNECT] handle_connect_server called with URL: {server_url}\n{'=' * 50}\n", flush=True)
+    logger.debug(f"[UI] 连接服务器：{server_url}")
+    try:
+        result = connect_to_server(server_url)
+        logger.info(f"[UI] handle_connect_server called, url={server_url}, success={result.get('success')}, error={result.get('error')}")
+        logger.debug(f"[UI] 连接服务器结果: {result}")
+    except Exception as exc:  # 捕获并显示异常，避免静默失败
+        logger.exception(f"[UI] 连接服务器异常: {exc}")
+        gr.Error(f"连接服务器异常: {exc}")
+        return (gr.Row(visible=False), gr.Dropdown(choices=[], value=None), gr.Button(visible=False), "<div style='color:#b71c1c;'>连接异常</div>")
 
     if result["success"]:
         logger.info("连接成功，显示成功提示")
@@ -70,20 +78,13 @@ def handle_use_online_model(online_model_key: str):
 
     if not online_model_key:
         gr.Warning("请先选择在线模型")
-        return gr.Dropdown(), gr.Textbox(), gr.Dropdown()
+        return gr.Textbox(), gr.Dropdown()
 
     switch_model(online_model_key)
     gr.Info(f"已切换到在线模型: {online_model_key.split(':', 1)[1]}")
 
     # 更新当前模型显示
     current_model_status = f"当前模型: [Online] {online_model_key.split(':', 1)[1]}"
-
-    # 更新主模型下拉框
-    available_models = model_manager.get_available_models()
-    model_choices = [(info["name"], key) for key, info in available_models.items()]
-
-    # 添加在线模型到选择列表
-    model_choices.append((online_model_key.split(":", 1)[1], online_model_key))
 
     # 如果选择的是 indextts2 模型，自动更新语音列表
     voices_dropdown = gr.Dropdown()
@@ -109,11 +110,7 @@ def handle_use_online_model(online_model_key: str):
     else:
         logger.info("非 TTS 模型，跳过语音列表加载")
 
-    return (
-        gr.Dropdown(choices=model_choices, value=online_model_key),  # model_dropdown
-        current_model_status,  # current_model_display
-        voices_dropdown,  # tts_voice
-    )
+    return current_model_status, voices_dropdown
 
 
 def update_model_status(model_key: str):
@@ -121,11 +118,7 @@ def update_model_status(model_key: str):
     if is_online_model(model_key):
         return f"当前模型: [Online] {model_key.split(':', 1)[1]}"
     else:
-        # 检查模型是否已加载
-        if model_manager.get_current_model() is None:
-            return "当前模型: 未加载 (请选择模型后点击'切换模型'按钮)"
-        model_info = model_manager.get_current_model_info()
-        return f"当前模型: [Local] {model_info.get('name', 'Unknown')}"
+        return "当前模型: 未连接在线模型"
 
 
 def update_tts_voices():
@@ -143,11 +136,6 @@ def update_tts_voices():
 def create_interface():
     """创建完整的Gradio界面"""
 
-    # 准备模型选择选项
-    available_models = model_manager.get_available_models()
-    model_choices = [(info["name"], key) for key, info in available_models.items()]
-    current_model_key = model_manager.current_model_key
-
     with gr.Blocks(theme=get_theme(), css=css) as demo:
         pdf_state = gr.State(value=get_initial_pdf_state())
         gr.Markdown("# LLM Web UI", elem_id="main-title")
@@ -155,30 +143,28 @@ def create_interface():
         # 模型选择区域
         with gr.Row():
             with gr.Column(scale=1):
-                model_dropdown = gr.Dropdown(choices=model_choices, value=current_model_key, label="本地模式 - 选择模型")
-                switch_model_btn = gr.Button("切换模型", variant="primary")
-
-            with gr.Column(scale=1):
                 with gr.Row():
-                    server_url_input = gr.Textbox(label="Online模式 - 服务器地址", placeholder=default_online_url, value=default_online_url)
-                with gr.Row():
-                    api_key_input = gr.Textbox(label="API Key", placeholder="sk-your-api-key-here", type="password", info="用于所有 API 请求的认证密钥")
-                    set_api_key_btn = gr.Button("设置 API Key", variant="secondary", scale=0)
+                    server_url_input = gr.Textbox(label="服务器地址", placeholder=default_online_url, value=default_online_url)
                 with gr.Row():
                     connect_server_btn = gr.Button("连接服务器", variant="primary")
-                # API Key 状态提示
-                api_key_status = gr.HTML(value="", elem_id="api-key-status")
                 # 在线模式状态提示区域（确保无论通知是否可用，都有可见反馈）
                 connect_status = gr.HTML(value="", elem_id="online-connect-status")
                 with gr.Row(visible=False) as online_models_row:
                     online_model_dropdown = gr.Dropdown(choices=[], label="选择在线模型", info="从远程服务器选择模型")
                     use_online_model_btn = gr.Button("使用在线模型", variant="secondary")
 
+            with gr.Column(scale=1):
+                with gr.Row():
+                    api_key_input = gr.Textbox(label="API Key", placeholder="sk-your-api-key-here", type="password", info="用于所有 API 请求的认证密钥")
+                    set_api_key_btn = gr.Button("设置 API Key", variant="secondary", scale=0)
+                # API Key 状态提示
+                api_key_status = gr.HTML(value="", elem_id="api-key-status")
+
         # 当前模型状态 - 始终显示在最下方
-        current_model_display = gr.Textbox(value=update_model_status(current_model_key), label="当前模型", interactive=False, info="显示当前正在使用的AI模型")
+        current_model_display = gr.Textbox(value="当前模型: 未连接在线模型", label="当前模型", interactive=False, info="显示当前正在使用的AI模型")
 
         # Tab选择行 - 独立一行显示
-        with gr.Row(), gr.Tabs():
+        with gr.Tabs():
             with gr.TabItem("Text Generation"), gr.Column():
                 text_query = gr.Textbox(label="Text Input", placeholder="Enter your text prompt here...", lines=3, scale=3)
                 with gr.Accordion("Advanced options", open=False), gr.Row():
@@ -293,7 +279,7 @@ def create_interface():
         text_query.submit(fn=generate_text, inputs=[text_query, max_new_tokens, temperature, top_p, top_k, repetition_penalty], outputs=[output, markdown_output])
 
         # 模型切换事件绑定
-        switch_model_btn.click(fn=switch_model, inputs=[model_dropdown], outputs=[current_model_display])
+        # switch_model_btn.click(fn=switch_model, inputs=[model_dropdown], outputs=[current_model_display])
 
         # Online模式事件绑定
         # API Key 设置
@@ -310,7 +296,7 @@ def create_interface():
             outputs=[online_models_row, online_model_dropdown, use_online_model_btn, connect_status],
         )
 
-        use_online_model_btn.click(fn=handle_use_online_model, inputs=[online_model_dropdown], outputs=[model_dropdown, current_model_display, tts_voice])
+        use_online_model_btn.click(fn=handle_use_online_model, inputs=[online_model_dropdown], outputs=[current_model_display, tts_voice])
 
         # 多模态事件绑定
         image_submit.click(fn=generate_image, inputs=[image_query, image_upload, max_new_tokens, temperature, top_p, top_k, repetition_penalty], outputs=[output, markdown_output])

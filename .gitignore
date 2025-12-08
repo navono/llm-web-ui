@@ -171,3 +171,4 @@ runs
 
 .ruff_cache
 models
+outputs

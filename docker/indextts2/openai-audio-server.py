@@ -8,9 +8,15 @@ import tempfile
 from pathlib import Path
 
 import uvicorn
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+
+# Import book speech functions
+from book_speech import (
+    create_tts_request,
+    parse_ssml,
+)
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -33,7 +39,7 @@ parser.add_argument("--fp16", action="store_true", default=False, help="Use FP16
 parser.add_argument("--cuda_kernel", action="store_true", default=False, help="Use CUDA kernel for inference")
 parser.add_argument("--deepspeed", action="store_true", default=False, help="Use DeepSpeed for acceleration")
 parser.add_argument("--audio_prompt_dir", type=str, default="/app/audio_prompts", help="Audio prompt base directory")
-parser.add_argument("--default_audio_prompt", type=str, default="Female-成熟_01.wav", help="Default audio prompt filename")
+parser.add_argument("--default_audio_prompt", type=str, default="jiang-style1.mp3", help="Default audio prompt filename")
 parser.add_argument("--offline", action="store_true", default=False, help="Run in offline mode (disable HuggingFace downloads)")
 cmd_args = parser.parse_args()
 
@@ -515,6 +521,113 @@ async def speech_endpoint(request: OpenAISpeechRequest, background_tasks: Backgr
     except Exception as e:
         logger.error(f"Error in speech endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# 阅读 app API
+@app.post("/v1/book/speech", response_class=Response)
+async def book_speech_endpoint(request: Request, background_tasks: BackgroundTasks):
+    """
+    Endpoint for text-to-speech synthesis using Azure TTS-style requests.
+    This endpoint is compatible with legado app and similar clients.
+
+    Note: API key validation is handled by nginx proxy layer.
+    """
+    try:
+        # Get request body
+        body_bytes = await request.body()
+        body_text = body_bytes.decode("utf-8")
+
+        # Parse SSML to extract text, rate, and voice
+        text, rate, voice = parse_ssml(body_text)
+        logger.info(f"Book speech request - Text: {text[:50]}..., Rate: {rate}, Voice: {voice}")
+
+        # Create TTS request from parsed text, rate, and voice
+        tts_request = create_tts_request(text, rate, response_format="mp3", voice=voice)
+
+        # Get TTS instance
+        tts = get_tts_instance()
+
+        # Process audio prompt (voice)
+        audio_prompt_path = None
+        if voice:
+            indexed_files = get_indexed_audio_files()
+            if voice.isdigit():
+                local_files = indexed_files.get("audio_files", {})
+                audio_prompt_path = os.path.join(audio_prompt_base_dir, local_files[voice]) if isinstance(local_files, dict) and voice in local_files else default_audio_prompt_path
+            else:
+                # Try to use voice as filename (with or without extension)
+                potential_path = os.path.join(audio_prompt_base_dir, voice)
+                # If voice doesn't have extension and file doesn't exist, try common extensions
+                if not os.path.exists(potential_path):
+                    if not any(voice.endswith(ext) for ext in [".mp3", ".wav", ".flac"]):
+                        for ext in [".mp3", ".wav", ".flac"]:
+                            test_path = os.path.join(audio_prompt_base_dir, voice + ext)
+                            if os.path.exists(test_path):
+                                audio_prompt_path = test_path
+                                break
+                    # If still not found, fall back to default
+                    if audio_prompt_path is None:
+                        logger.warning(f"Voice file not found: {voice}, using default: {default_audio_prompt_path}")
+                        audio_prompt_path = default_audio_prompt_path
+                else:
+                    audio_prompt_path = potential_path
+        else:
+            audio_prompt_path = default_audio_prompt_path
+
+        # Create temporary output file
+        output_format = tts_request.response_format.lower()
+        with tempfile.NamedTemporaryFile(suffix=f".{output_format}", delete=False) as temp_file:
+            output_path = temp_file.name
+
+        background_tasks.add_task(lambda: os.unlink(output_path) if os.path.exists(output_path) else None)
+
+        # Prepare generation kwargs with speed adjustment
+        kwargs = {
+            "do_sample": True,
+            "top_p": 0.8,
+            "top_k": 30,
+            "temperature": 0.8,
+            "length_penalty": 0.0,
+            "num_beams": 3,
+            "repetition_penalty": 10.0,
+            "max_mel_tokens": 1500,
+        }
+
+        # Generate speech using IndexTTS2
+        logger.info(f"Generating book speech with voice: {audio_prompt_path}, speed: {tts_request.speed}")
+        tts.infer(
+            spk_audio_prompt=audio_prompt_path,
+            text=text,
+            output_path=output_path,
+            verbose=tts_request.verbose,
+            max_text_tokens_per_segment=tts_request.max_text_tokens_per_sentence,
+            **kwargs,
+        )
+
+        # Read the audio file and return as Response (not streaming)
+        # This matches llm-forwarder implementation for better client compatibility
+        with open(output_path, "rb") as f:
+            audio_data = f.read()
+
+        content_type = "audio/mpeg" if output_format == "mp3" else "audio/wav"
+
+        # Return with explicit headers for client compatibility
+        return Response(
+            content=audio_data,
+            media_type=content_type,
+            headers={
+                "Content-Length": str(len(audio_data)),
+                "Accept-Ranges": "bytes",
+            },
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        err_content = str(e)[:100]
+        logger.error(f"Error processing book speech request: {err_content}")
+        raise HTTPException(status_code=500, detail=f"Error processing book speech request: {err_content}") from e
 
 
 if __name__ == "__main__":

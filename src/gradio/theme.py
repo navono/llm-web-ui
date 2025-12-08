@@ -7,8 +7,16 @@ css = """
 #main-title h1 {
     font-size: 2.3em !important;
 }
-#output-title h2 {
-    font-size: 2.1em !important;
+#main-title, .gradio-container {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+.gradio-container {
+    padding: 24px 16px;
+}
+.gradio-container .block {
+    margin-left: auto;
+    margin-right: auto;
 }
 .model-message { text-align: end; }
 .model-dropdown-container { display: flex; align-items: center; gap: 10px; padding: 0; }

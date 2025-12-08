@@ -48,20 +48,19 @@ async def start():
     # 启动 Gradio
     # 检查是否存在 SSL 证书文件
     import os
+
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     cert_file = os.path.join(project_root, "cert.pem")
     key_file = os.path.join(project_root, "key.pem")
-    
+
     launch_kwargs = {
-        "mcp_server": False,
-        "ssr_mode": False,
-        "show_error": True,
         "server_name": server_host,
         "prevent_thread_lock": False,
         "share": False,
-        "quiet": False,
+        "show_error": True,
+        "debug": True,
     }
-    
+
     # 如果证书文件存在，启用 HTTPS
     if os.path.exists(cert_file) and os.path.exists(key_file):
         launch_kwargs["ssl_certfile"] = cert_file
@@ -72,12 +71,13 @@ async def start():
         logger.info("Running in HTTP mode (no SSL certificates found)")
 
     try:
-        gradio_demo.queue(max_size=50).launch(server_port=server_port, **launch_kwargs)
+        # 直接 launch，Gradio 会自动处理队列
+        gradio_demo.launch(server_port=server_port, **launch_kwargs)
         logger.info(f"Gradio interface launched on {server_host}:{server_port}")
     except OSError as e:
         if "Cannot find empty port" in str(e) or "Address already in use" in str(e):
             logger.warning(f"Port {server_port} occupied, trying {server_port + 1}")
-            gradio_demo.queue(max_size=50).launch(server_port=server_port + 1, **launch_kwargs)
+            gradio_demo.launch(server_port=server_port + 1, **launch_kwargs)
             logger.info(f"Gradio interface launched on {server_host}:{server_port + 1}")
         else:
             raise

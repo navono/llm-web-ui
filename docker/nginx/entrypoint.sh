@@ -4,7 +4,7 @@
 set -e
 
 # 定义需要替换的环境变量
-VARS='$API_KEY_1:$API_KEY_2:$JINA_API_KEY'
+VARS='$API_KEY_1:$API_KEY_2:$API_KEY_3:$JINA_API_KEY'
 
 # 使用 envsubst 替换环境变量
 envsubst "$VARS" < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
