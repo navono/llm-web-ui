@@ -111,15 +111,29 @@ services:
     container_name: llm-web-ui-indextts2
     env_file:
       - ../.env
+    command:
+      [
+        "python",
+        "/app/openai-audio-server.py",
+        "--model_dir",
+        "/app/models_cache/snapshots/258515cc44cee99d5b9694a67ee194ffd8a3e618",
+        "--port",
+        "12234",
+        "--host",
+        "0.0.0.0",
+        "--audio_prompt_dir",
+        "/app/audio_prompts"
+      ]
     networks:
       - llm-network
     ports:
       - "12234:12234"
     volumes:
       # 挂载整个 HuggingFace hub 目录，包含所有模型
-      - "/mnt/f/data/HF_models/:/root/.cache/huggingface/"
+      - "/mnt/e/data/hf_models/:/root/.cache/huggingface/"
       # 挂载 IndexTTS-2 模型目录
-      - "/mnt/f/data/HF_models/hub/models--IndexTeam--IndexTTS-2:/app/models_cache"
+      - "/mnt/e/data/hf_models/hub/models--IndexTeam--IndexTTS-2:/app/models_cache"
+      - "/mnt/e/data/hf_models/hub:/app/checkpoints/hf_cache"
       # 挂载音频提示文件目录
       - "/mnt/e/OneDrive/data_sync/audio_samples:/app/audio_prompts"
       # 输出目录（可选）
@@ -128,6 +142,13 @@ services:
       - PYTHONUNBUFFERED=1
       - CUDA_VISIBLE_DEVICES=0
       - PORT=12234
+      - HF_HOME=/root/.cache/huggingface
+      - HUGGINGFACE_HUB_CACHE=/root/.cache/huggingface/hub
+      - TRANSFORMERS_CACHE=/root/.cache/huggingface/transformers
+      - HF_DATASETS_CACHE=/root/.cache/huggingface/datasets
+      - TORCH_HOME=/root/.cache/huggingface/torch
+      - XDG_CACHE_HOME=/root/.cache/huggingface
+      - HF_ENDPOINT=${HF_ENDPOINT:-https://hf-mirror.com}
       # HTTP/HTTPS proxy settings
       - HTTP_PROXY=${PROXY_SERVER}
       - HTTPS_PROXY=${PROXY_SERVER}
