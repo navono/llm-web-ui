@@ -23,9 +23,9 @@ OUTPUT_DIR = Path(__file__).parent.parent / "outputs" / "test_audio"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # API 配置 - 通过 nginx 8080 端口访问
-# BOOK_SPEECH_API_URL = "http://localhost:8080/v1/book/speech"
-BOOK_SPEECH_API_URL = "https://api.pingeek.top/v1/book/speech"
-API_KEY = "pingqixing"
+BOOK_SPEECH_API_URL = "http://localhost:8080/v1/book/speech"
+# BOOK_SPEECH_API_URL = "https://api.pingeek.top/v1/book/speech"
+API_KEY = "sk-test"
 
 
 def test_api_key_verification():
@@ -35,8 +35,8 @@ def test_api_key_verification():
     print("=" * 60)
 
     # 测试有效的 key
-    assert verify_api_key("pingqixing") is True
-    print("✅ 有效的 API key: pingqixing")
+    assert verify_api_key("sk-test") is True
+    print("✅ 有效的 API key: sk-test")
 
     # 测试无效的 key
     assert verify_api_key("wrong_key") is False
@@ -216,12 +216,20 @@ def test_http_api():
                 headers=headers,
                 timeout=30
             )
-            
+
+            print(f"  响应状态码: {response.status_code}")
+            print(f"  响应头: {dict(response.headers)}")
+            if response.status_code != 200:
+                print(f"  错误响应: {response.text[:200]}")
+
             if response.status_code == 200:
                 # 保存音频文件
                 audio_file = OUTPUT_DIR / f"test_{name}.mp3"
+                print(f"  保存音频文件到: {audio_file}")
+                print(f"  音频大小: {len(response.content)} bytes")
                 with open(audio_file, "wb") as f:
                     f.write(response.content)
+                print(f"  文件已保存，实际大小: {audio_file.stat().st_size} bytes")
                 
                 # 保存解析结果
                 info_file = OUTPUT_DIR / f"test_{name}.txt"
@@ -263,7 +271,7 @@ def main():
 
     try:
         # 基础功能测试
-        test_api_key_verification()
+        # test_api_key_verification()
         test_ssml_parsing()
         test_tts_request_creation()
 

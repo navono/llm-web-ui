@@ -31,6 +31,7 @@ services:
       # 直接挂载配置文件，使用 entrypoint 脚本处理环境变量
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf.template:ro
       - ./nginx/entrypoint.sh:/docker-entrypoint.d/40-envsubst-on-nginx-conf.sh:ro
+      - ./nginx/logs/:/var/log/nginx
       - ../.env:/app/.env:ro
     networks:
       - llm-network
@@ -122,7 +123,7 @@ services:
         "--host",
         "0.0.0.0",
         "--audio_prompt_dir",
-        "/app/audio_prompts"
+        "/app/audio_prompts",
       ]
     networks:
       - llm-network
@@ -130,10 +131,10 @@ services:
       - "12234:12234"
     volumes:
       # 挂载整个 HuggingFace hub 目录，包含所有模型
-      - "/mnt/e/data/hf_models/:/root/.cache/huggingface/"
+      - "/mnt/f/data/HF_models/:/root/.cache/huggingface/"
       # 挂载 IndexTTS-2 模型目录
-      - "/mnt/e/data/hf_models/hub/models--IndexTeam--IndexTTS-2:/app/models_cache"
-      - "/mnt/e/data/hf_models/hub:/app/checkpoints/hf_cache"
+      - "/mnt/f/data/HF_models/hub/models--IndexTeam--IndexTTS-2:/app/models_cache"
+      - "/mnt/f/data/HF_models/hub:/app/checkpoints/hf_cache"
       # 挂载音频提示文件目录
       - "/mnt/e/OneDrive/data_sync/audio_samples:/app/audio_prompts"
       # 输出目录（可选）

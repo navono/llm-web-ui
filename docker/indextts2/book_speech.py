@@ -41,7 +41,15 @@ def get_tts_service_url() -> str:
 def verify_api_key(api_key: str) -> bool:
     if api_key is None:
         return False
-    return api_key == "pingqixing"
+    # Check against configured API keys
+    valid_keys = [
+        os.environ.get("API_KEY_1"),
+        os.environ.get("API_KEY_2"),
+        os.environ.get("API_KEY_3"),
+    ]
+    # Filter out None values
+    valid_keys = [key for key in valid_keys if key]
+    return api_key in valid_keys
 
 
 def parse_ssml(body_text: str) -> tuple[str, str, str]:
